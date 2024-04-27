@@ -21,6 +21,9 @@ func init() {
 	v = getEnv("BOT_TOKEN_FILENAME")
 	Env.Bot.TokenFilename = v
 
+	v = getEnv("BOT_TOKEN")
+	Env.Bot.Token = v
+
 	v = getEnv("BOT_DEBUG")
 	vb, err := strconv.ParseBool(v)
 	if err != nil {
@@ -50,5 +53,6 @@ type MongoConfig struct {
 
 type BotConfig struct {
 	TokenFilename string
+	Token         string
 	Debug         bool
 }
