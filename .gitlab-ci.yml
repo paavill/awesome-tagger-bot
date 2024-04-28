@@ -1,0 +1,60 @@
+variables:
+  TAG: $MAJ.$MIN.$CI_PIPELINE_IID
+
+stages:
+  - build
+  - deploy
+
+.build: &build
+  image: docker
+  services:
+    - "docker:dind"
+  variables:  # not strictly needed, depending on runner configuration
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  stage: build
+  script:
+    - docker build -t $REG:$TAG -t $REG:latest .
+    - docker push $REG:$TAG
+    - docker push $REG:latest
+
+.deploy: &deploy
+  image: ubuntu:latest
+  stage: deploy
+  before_script:
+    - apt-get update -y && apt-get install openssh-client -y
+    - eval $(ssh-agent -s)
+    - chmod 400 $SSH_PRIVATE_KEY
+    - ssh-add $SSH_PRIVATE_KEY
+    - mkdir ~/.ssh
+    - chmod 700 ~/.ssh
+    - cp $SSH_KNOWN_HOSTS ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    - ssh $SSH_USER@$SSH_IP "echo '' > .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'TAG=$TAG' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'REG=$REG' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN_FILENAME=' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_URI=$SSH_IP' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_USER=$MONGODB_USER' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_PASS=$MONGODB_PASS' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_DB=$MONGODB_DB' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'BOT_DEBUG=$BOT_DEBUG' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN=$BOT_TOKEN' >> .env"
+  script:
+    - scp $COMPOSE_FILE $SSH_USER@$SSH_IP:~/$COMPOSE_FILE
+    - ssh $SSH_USER@$SSH_IP "docker compose up -f $COMPOSE_FILE -d --build"
+
+build_prod:
+  only:
+    - main
+  <<: *build
+
+deploy_prod:
+  only:
+    - mainF
+  <<: *deploy
+  variables:
+    BOT_DEBUG: false
+    COMPOSE_FILE: ./docker-compose-prod.yml
+  
+  

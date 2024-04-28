@@ -18,6 +18,9 @@ func init() {
 	v = getEnv("MONGODB_PASS")
 	Env.Mongo.Pass = v
 
+	v = getEnv("MONGODB_DB")
+	Env.Mongo.Db = v
+
 	v = getEnv("BOT_TOKEN_FILENAME")
 	Env.Bot.TokenFilename = v
 
@@ -49,6 +52,7 @@ type MongoConfig struct {
 	Host string
 	User string
 	Pass string
+	Db   string
 }
 
 type BotConfig struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/paavill/awesome-tagger-bot/config"
 	"github.com/paavill/awesome-tagger-bot/domain/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -53,7 +54,7 @@ type chatRepo struct {
 }
 
 func makeChatRepo(client *mongo.Client) *mongo.Collection {
-	collection := client.Database("tagger").Collection("chats")
+	collection := client.Database(config.Env.Mongo.Db).Collection("chats")
 	return collection
 }
 
