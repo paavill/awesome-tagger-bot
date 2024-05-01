@@ -12,7 +12,7 @@ import (
 func initBot() {
 	tokenFromFileRaw, err := os.ReadFile(config.Env.Bot.TokenFilename)
 	if err != nil {
-		log.Panic(err)
+		log.Println("Error reading Token file " + err.Error())
 	}
 	tokenFromFile := string(tokenFromFileRaw)
 	tokenFromFile = strings.ReplaceAll(tokenFromFile, "\n", "")
