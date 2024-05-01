@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	chats = map[int64]*models.Chat{}
-	uid   = uuid.NewString()
+	chats   = map[int64]*models.Chat{}
+	uid     = uuid.NewString()
+	ownName = "awesome_tagger_bot"
 )
 
 // TODO загружать подругому
@@ -43,9 +44,12 @@ func Run(update tgbotapi.Update) {
 	processChat(id)
 	callbackProcess(cbq, id)
 	processTagAll(update)
+	addUserOnEnyActionAndVerifyOwnSelf(update)
+
 	if _, ok := chats[id]; !ok {
 		log.Panic("This shouldn't happen")
 	}
+
 	ch := chats[id]
 	if ch.MongoId == "" {
 		chat, err := mongo.Chats().Insert(*ch)
@@ -58,6 +62,24 @@ func Run(update tgbotapi.Update) {
 		if err != nil {
 			log.Printf("Error while updating chat %d with mongo", ch.Id)
 		}
+	}
+}
+
+func addUserOnEnyActionAndVerifyOwnSelf(update tgbotapi.Update) {
+	chat := update.FromChat()
+	if chat == nil {
+		chat = &update.MyChatMember.Chat
+	}
+	id := chat.ID
+	user := update.Message.From
+
+	if user != nil && user.UserName == ownName {
+		users := chats[id].Users
+		delete(users, ownName)
+	}
+
+	if user != nil {
+		chats[id].Users[user.UserName] = struct{}{}
 	}
 }
 

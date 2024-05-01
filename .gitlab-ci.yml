@@ -1,5 +1,6 @@
 variables:
   TAG: $MAJ.$MIN.$CI_PIPELINE_IID
+  TAG_PROD: $MAJ.$MIN.$CI_PIPELINE_IID.$PROD_POSTFIX
 
 stages:
   - build
@@ -14,6 +15,7 @@ stages:
     DOCKER_TLS_CERTDIR: ""
   stage: build
   script:
+    - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
     - docker build -t $REG:$TAG -t $REG:latest .
     - docker push $REG:$TAG
     - docker push $REG:latest
@@ -41,20 +43,27 @@ stages:
     - ssh $SSH_USER@$SSH_IP "echo 'BOT_DEBUG=$BOT_DEBUG' >> .env"
     - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN=$BOT_TOKEN' >> .env"
   script:
+    - ssh $SSH_USER@$SSH_IP "docker login -u $DOCKER_USER -p $DOCKER_PASSWORD"
     - scp $COMPOSE_FILE $SSH_USER@$SSH_IP:~/$COMPOSE_FILE
-    - ssh $SSH_USER@$SSH_IP "docker compose up -f $COMPOSE_FILE -d --build"
+    - ssh $SSH_USER@$SSH_IP "docker compose up $COMPOSE_COMMAND -d --build"
 
 build_prod:
   only:
     - main
   <<: *build
+  variables:
+    TAG: $TAG_PROD
 
 deploy_prod:
   only:
-    - mainF
+    - main
   <<: *deploy
   variables:
     BOT_DEBUG: false
-    COMPOSE_FILE: ./docker-compose-prod.yml
+    COMPOSE_COMMAND: tagger-prod mongo-prod
+    COMPOSE_FILE: ./docker-compose.yaml
+    MONGODB_DB: tagger_prod
+    BOT_TOKEN: $BOT_TOKEN_PROD
+    TAG: $TAG_PROD
   
   
