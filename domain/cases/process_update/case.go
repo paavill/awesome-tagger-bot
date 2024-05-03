@@ -71,15 +71,17 @@ func addUserOnEnyActionAndVerifyOwnSelf(update tgbotapi.Update) {
 		chat = &update.MyChatMember.Chat
 	}
 	id := chat.ID
-	user := update.Message.From
 
-	if user != nil && user.UserName == ownName {
+	username := chat.UserName
+
+	if username == ownName {
+
 		users := chats[id].Users
 		delete(users, ownName)
 	}
 
-	if user != nil {
-		chats[id].Users[user.UserName] = struct{}{}
+	if username != ownName && username != "" {
+		chats[id].Users[username] = struct{}{}
 	}
 }
 
