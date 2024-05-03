@@ -33,9 +33,10 @@ func Run(update tgbotapi.Update) {
 		chat = &update.MyChatMember.Chat
 	}
 	id := chat.ID
+	chatName := chat.Title
 	cbq := update.CallbackQuery
 
-	initChatIfNeed(id)
+	initChatIfNeed(id, chatName)
 	clearCashCommand(id, "")
 	if update.Message != nil {
 		resetCommand(id, update.Message.Text)
@@ -63,16 +64,19 @@ func Run(update tgbotapi.Update) {
 	}
 }
 
-func initChatIfNeed(id int64) {
+func initChatIfNeed(id int64, chatName string) {
 	if _, ok := chats[id]; !ok {
 		chats[id] = &models.Chat{
 			Id:           id,
+			ChatName:     chatName,
 			Users:        map[string]struct{}{},
 			New:          true,
 			ClearCash:    false,
 			UuidCallback: uuid.NewString(),
 		}
 		log.Printf("Chat with ID %d added", id)
+	} else if chats[id].ChatName == "" {
+		chats[id].ChatName = chatName
 	}
 }
 
