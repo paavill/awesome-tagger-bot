@@ -2,6 +2,7 @@ package process_update
 
 import (
 	"log"
+	"os"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -54,13 +55,13 @@ func Run(update tgbotapi.Update) {
 	if ch.MongoId == "" {
 		chat, err := mongo.Chats().Insert(*ch)
 		if err != nil {
-			log.Printf("Error while inserting chat %d to mongo", ch.Id)
+			log.Printf("Error while inserting chat %d to mongo\n", ch.Id)
 		}
 		chats[chat.Id] = &chat
 	} else {
 		err := mongo.Chats().Update(*ch)
 		if err != nil {
-			log.Printf("Error while updating chat %d with mongo", ch.Id)
+			log.Printf("Error while updating chat %d with mongo\n", ch.Id)
 		}
 	}
 }
@@ -80,6 +81,7 @@ func addUserOnEnyActionAndVerifyOwnSelf(update tgbotapi.Update) {
 
 	if username != ownName && username != "" {
 		chats[id].Users[username] = struct{}{}
+		log.Printf("User %s shared name in chat %d\n", username, id)
 	}
 }
 
@@ -91,7 +93,7 @@ func initChatIfNeed(id int64) {
 			New:       true,
 			ClearCash: false,
 		}
-		log.Printf("Chat with ID %d added", id)
+		log.Printf("Chat with ID %d added\n", id)
 	}
 }
 
@@ -151,7 +153,7 @@ func callbackProcess(q *tgbotapi.CallbackQuery, chatId int64) {
 	username := user.UserName
 	if data == uid {
 		chats[chatId].Users[username] = struct{}{}
-		log.Printf("User %s shared name in chat %d", username, chatId)
+		log.Printf("User %s shared name in chat %d\n", username, chatId)
 	}
 }
 
@@ -182,4 +184,23 @@ func resetCommand(id int64, command string) {
 	if ch, ok := chats[id]; ok && command == "/reset@awesome_tagger_bot" {
 		ch.New = true
 	}
+}
+
+func versionCommand(id int64, command string) {
+	if _, ok := chats[id]; !ok {
+		return
+	}
+
+	if command != "/version@awesome_tagger_bot" {
+		return
+	}
+
+	ver, err := os.ReadFile("VERSION")
+	if err != nil {
+		msg := tgbotapi.NewMessage(id, "Я забыл свою версию 😥")
+		bt.Bot.Send(msg)
+		return
+	}
+	msg := tgbotapi.NewMessage(id, "Вот, пожалуйста : "+string(ver))
+	bt.Bot.Send(msg)
 }
