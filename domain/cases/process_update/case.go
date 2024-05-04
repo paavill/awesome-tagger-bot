@@ -137,6 +137,8 @@ func callbackProcess(q *tgbotapi.CallbackQuery, chatId int64) {
 	if data == chats[chatId].UuidCallback {
 		chats[chatId].Users[username] = struct{}{}
 		log.Printf("User %s shared name in chat %d", username, chatId)
+		callBackConfig := tgbotapi.NewCallbackWithAlert(q.ID, "Спасибо, теперь я тебя знаю☺")
+		bt.Bot.Send(callBackConfig)
 	}
 }
 
