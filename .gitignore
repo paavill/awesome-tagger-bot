@@ -3,3 +3,4 @@ rsa.pub
 .env
 .vscode
 data
+vendor

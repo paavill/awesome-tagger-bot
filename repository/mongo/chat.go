@@ -25,7 +25,7 @@ func (c *mongoChat) fromModel(model models.Chat) {
 	c.MongoId = oid
 	c.TgId = model.Id
 	users := make([]string, 0, len(model.Users))
-	for k, _ := range model.Users {
+	for k := range model.Users {
 		users = append(users, k)
 	}
 	c.Users = users

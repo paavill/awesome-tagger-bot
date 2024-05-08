@@ -35,7 +35,7 @@ func ReceiveUpdate(update tgbotapi.Update) {
 	if ch, ok := queue[id]; ok {
 		ch <- update
 	} else {
-		queue[id] = make(chan tgbotapi.Update)
+		queue[id] = make(chan tgbotapi.Update, 1000)
 		go runChanProcessor(id)
 		queue[id] <- update
 	}
