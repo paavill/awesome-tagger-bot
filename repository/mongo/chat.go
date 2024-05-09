@@ -12,9 +12,11 @@ import (
 )
 
 type mongoChat struct {
-	MongoId primitive.ObjectID `bson:"_id"`
-	TgId    int64              `bson:"tg_id"`
-	Users   []string           `bson:"users"`
+	MongoId      primitive.ObjectID `bson:"_id"`
+	TgId         int64              `bson:"tg_id"`
+	ChatName     string             `bson:"chat_name"`
+	UuidCallback string             `bson:"uuid_callback"`
+	Users        []string           `bson:"users"`
 }
 
 func (c *mongoChat) fromModel(model models.Chat) {
@@ -24,6 +26,8 @@ func (c *mongoChat) fromModel(model models.Chat) {
 	}
 	c.MongoId = oid
 	c.TgId = model.Id
+	c.UuidCallback = model.UuidCallback
+	c.ChatName = model.ChatName
 	users := make([]string, 0, len(model.Users))
 	for k := range model.Users {
 		users = append(users, k)
@@ -36,6 +40,8 @@ func (c *mongoChat) toModel() models.Chat {
 	model.Id = c.TgId
 	model.MongoId = c.MongoId.Hex()
 	model.Users = map[string]struct{}{}
+	model.UuidCallback = c.UuidCallback
+	model.ChatName = c.ChatName
 	for _, u := range c.Users {
 		model.Users[u] = struct{}{}
 	}
