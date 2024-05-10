@@ -3,10 +3,11 @@ package models
 import "fmt"
 
 type NewsSettings struct {
-	ChatId  int64
-	MongoId string
-	Hour    int
-	Minute  int
+	ChatId   int64
+	MongoId  string
+	Hour     int
+	Minute   int
+	Schedule bool
 }
 
 func (n *NewsSettings) Validate() error {

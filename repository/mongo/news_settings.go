@@ -12,10 +12,11 @@ import (
 )
 
 type mongoNewsSettings struct {
-	MongoId primitive.ObjectID `bson:"_id"`
-	ChatId  int64              `bson:"chat_id"`
-	Hour    int                `bson:"hour"`
-	Minute  int                `bson:"minute"`
+	MongoId  primitive.ObjectID `bson:"_id"`
+	ChatId   int64              `bson:"chat_id"`
+	Hour     int                `bson:"hour"`
+	Minute   int                `bson:"minute"`
+	Schedule bool               `bson:"schedule"`
 }
 
 func (s *mongoNewsSettings) fromModel(model models.NewsSettings) {
@@ -27,6 +28,7 @@ func (s *mongoNewsSettings) fromModel(model models.NewsSettings) {
 	s.ChatId = model.ChatId
 	s.Hour = model.Hour
 	s.Minute = model.Minute
+	s.Schedule = model.Schedule
 }
 
 func (s *mongoNewsSettings) toModel() models.NewsSettings {
@@ -35,13 +37,14 @@ func (s *mongoNewsSettings) toModel() models.NewsSettings {
 	model.MongoId = s.MongoId.Hex()
 	model.Hour = s.Hour
 	model.Minute = s.Minute
+	model.Schedule = s.Schedule
 	return model
 }
 
-type NewsSettings interface {
-	Insert(models.Chat) error
-	Update(models.Chat) error
-	FindAll() ([]models.Chat, error)
+type NewsSettingsRepo interface {
+	Insert(*models.NewsSettings) error
+	Update(*models.NewsSettings) error
+	FindAll() ([]models.NewsSettings, error)
 }
 
 type newsSettingsRepo struct {
@@ -71,20 +74,20 @@ func (r *newsSettingsRepo) FindAll() ([]models.NewsSettings, error) {
 	return result, nil
 }
 
-func (r *newsSettingsRepo) Insert(model models.NewsSettings) error {
+func (r *newsSettingsRepo) Insert(model *models.NewsSettings) error {
 	mch := mongoNewsSettings{}
 	model.MongoId = primitive.NewObjectID().Hex()
-	mch.fromModel(model)
+	mch.fromModel(*model)
 	_, err := r.collection.InsertOne(context.Background(), mch)
 	return err
 }
 
-func (r *newsSettingsRepo) Update(model models.NewsSettings) error {
+func (r *newsSettingsRepo) Update(model *models.NewsSettings) error {
 	if model.MongoId == "" {
 		log.Panic("This shouldn't happen")
 	}
 	mch := mongoNewsSettings{}
-	mch.fromModel(model)
+	mch.fromModel(*model)
 	_, err := r.collection.ReplaceOne(context.Background(), bson.M{"_id": mch.MongoId}, mch)
 	return err
 }
