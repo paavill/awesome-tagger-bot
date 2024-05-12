@@ -13,6 +13,7 @@ WORKDIR /
 
 RUN apt update
 RUN apt install -y ca-certificates
+RUN apt install -y firefox
 
 COPY --from=builder /usr/tagger/tagger /bin/tagger
 

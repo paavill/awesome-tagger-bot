@@ -9,7 +9,7 @@ import (
 )
 
 func Run(chatId int64) {
-	title, news, err := get_news.Run()
+	title, news, err := get_news.Run(chatId)
 	if err != nil {
 		return
 	}

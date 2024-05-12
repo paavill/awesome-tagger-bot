@@ -3,54 +3,33 @@ package get_news
 import (
 	"log"
 	"net/http"
+	"os/exec"
 	"time"
 
 	"github.com/antchfx/htmlquery"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/paavill/awesome-tagger-bot/bot"
 )
 
 var (
-	site       = "https://kakoysegodnyaprazdnik.ru/"
-	headerName = "User-Agent"
-	header     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-	h1         = struct {
-		k string
-		v string
-	}{
-		"authority",
-		"kakoysegodnyaprazdnik.ru",
-	}
-	h2 = struct {
-		k string
-		v string
-	}{
-		"method",
-		"GET",
-	}
-	h3 = struct {
-		k string
-		v string
-	}{
-		"path",
-		"/",
-	}
-	h4 = struct {
-		k string
-		v string
-	}{
-		"scheme",
-		"https",
-	}
+	site        = "https://kakoysegodnyaprazdnik.ru/"
+	headerName  = "User-Agent"
+	header      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	cachedTitle = ""
 	cachedNews  = []string{}
 	cachedDay   = -1
 )
 
-func Run() (string, []string, error) {
+func Run(chatId int64) (string, []string, error) {
 	t, n, ok := getCached()
 	if ok {
 		log.Println("Get cached news")
 		return t, n, nil
 	}
+
+	log.Println("Get news from " + site)
+	bot.Bot.Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 10 секунд)..."))
+	openFirefox()
 
 	req, err := http.NewRequest("GET", site, nil)
 	if err != nil {
@@ -58,10 +37,6 @@ func Run() (string, []string, error) {
 	}
 
 	req.Header.Add(headerName, header)
-	req.Header.Add(h1.k, h1.v)
-	req.Header.Add(h2.k, h2.v)
-	req.Header.Add(h3.k, h3.v)
-	req.Header.Add(h4.k, h4.v)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -122,4 +97,21 @@ func setCached(title string, news []string) {
 
 	n := time.Now()
 	cachedDay = n.Day()
+}
+
+func openFirefox() {
+	cmd := exec.Command("firefox", "--headless", "https://kakoysegodnyaprazdnik.ru/")
+
+	go func() {
+		err := cmd.Run()
+		if err != nil {
+			log.Println("Error while open firefox " + err.Error())
+		}
+	}()
+
+	time.Sleep(60 * time.Second)
+	err := cmd.Process.Kill()
+	if err != nil {
+		log.Println("Error while kill firefox " + err.Error())
+	}
 }
