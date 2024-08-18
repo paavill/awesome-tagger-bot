@@ -2,8 +2,8 @@ package get_news
 
 import (
 	"log"
-	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/antchfx/htmlquery"
@@ -13,8 +13,6 @@ import (
 
 var (
 	site        = "https://kakoysegodnyaprazdnik.ru/"
-	headerName  = "User-Agent"
-	header      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
 	cachedTitle = ""
 	cachedNews  = []string{}
 	cachedDay   = -1
@@ -29,24 +27,11 @@ func Run(chatId int64) (string, []string, error) {
 
 	log.Println("Get news from " + site)
 	bot.Bot.Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 10 секунд)..."))
-	openFirefox()
 
-	req, err := http.NewRequest("GET", site, nil)
-	if err != nil {
-		log.Println("Error while get to " + site + " " + err.Error())
-	}
+	body := getHtml()
+	bodyReader := strings.NewReader(body)
 
-	req.Header.Add(headerName, header)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Println("Error while do request " + site + " " + err.Error())
-	}
-	defer resp.Body.Close()
-
-	log.Println("Request to "+site+" processed with code ", resp.StatusCode)
-
-	node, err := htmlquery.Parse(resp.Body)
+	node, err := htmlquery.Parse(bodyReader)
 	if err != nil {
 		log.Println("Error while parse html " + site + " " + err.Error())
 	}
@@ -99,19 +84,13 @@ func setCached(title string, news []string) {
 	cachedDay = n.Day()
 }
 
-func openFirefox() {
-	cmd := exec.Command("firefox", "--headless", "https://kakoysegodnyaprazdnik.ru/")
+func getHtml() string {
+	cmd := exec.Command("python3", "get_news.py")
 
-	go func() {
-		err := cmd.Run()
-		if err != nil {
-			log.Println("Error while open firefox " + err.Error())
-		}
-	}()
-
-	time.Sleep(60 * time.Second)
-	err := cmd.Process.Kill()
+	output, err := cmd.Output()
 	if err != nil {
-		log.Println("Error while kill firefox " + err.Error())
+		log.Println("Error while open firefox " + err.Error())
 	}
+
+	return string(output)
 }

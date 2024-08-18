@@ -12,17 +12,21 @@ import (
 )
 
 var (
-	nul             = "nil"
-	root            = "root"
-	settingsToday   = "settings_today"
-	incrementHour   = "increment_hour"
-	incrementMinute = "increment_minute"
-	decrementHour   = "decrement_hour"
-	decrementMinute = "decrement_minute"
-	save            = "save"
-	onOffChange     = "on_off_change"
-	back            = "back"
-	markUps         = map[string]tgbotapi.InlineKeyboardMarkup{
+	nul           = "nil"
+	root          = "root"
+	hours         = "hours"
+	minutes       = "minutes"
+	settingsToday = "settings_today"
+	selectHour    = "select_hour"
+	selectMinute  = "select_minute"
+	save          = "save"
+	onOffChange   = "on_off_change"
+	back          = "back"
+
+	hoursArray   = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"}
+	minutesArray = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"}
+
+	markUps = map[string]tgbotapi.InlineKeyboardMarkup{
 		root: tgbotapi.InlineKeyboardMarkup{
 			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 				[]tgbotapi.InlineKeyboardButton{
@@ -37,32 +41,12 @@ var (
 			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 				[]tgbotapi.InlineKeyboardButton{
 					tgbotapi.InlineKeyboardButton{
-						Text:         "+",
-						CallbackData: &incrementHour,
-					},
-					tgbotapi.InlineKeyboardButton{
-						Text:         "+",
-						CallbackData: &incrementMinute,
-					},
-				},
-				[]tgbotapi.InlineKeyboardButton{
-					tgbotapi.InlineKeyboardButton{
 						Text:         "12",
-						CallbackData: &nul,
+						CallbackData: &selectHour,
 					},
 					tgbotapi.InlineKeyboardButton{
 						Text:         "0",
-						CallbackData: &nul,
-					},
-				},
-				[]tgbotapi.InlineKeyboardButton{
-					tgbotapi.InlineKeyboardButton{
-						Text:         "-",
-						CallbackData: &decrementHour,
-					},
-					tgbotapi.InlineKeyboardButton{
-						Text:         "-",
-						CallbackData: &decrementMinute,
+						CallbackData: &selectMinute,
 					},
 				},
 				[]tgbotapi.InlineKeyboardButton{
@@ -85,8 +69,49 @@ var (
 				},
 			},
 		},
+		hours: tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+			},
+		},
+		minutes: tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{},
+			},
+		},
 	}
 )
+
+func init() {
+	for i, v := range hoursArray {
+		subArrayIndex := i / 6
+		callBackData := "h-" + v
+		markUps[hours].InlineKeyboard[subArrayIndex] = append(markUps[hours].InlineKeyboard[subArrayIndex], tgbotapi.InlineKeyboardButton{
+			Text:         v,
+			CallbackData: &callBackData,
+		})
+	}
+	for i, v := range minutesArray {
+		subArrayIndex := i / 6
+		callBackData := "m-" + v
+		markUps[minutes].InlineKeyboard[subArrayIndex] = append(markUps[minutes].InlineKeyboard[subArrayIndex], tgbotapi.InlineKeyboardButton{
+			Text:         v,
+			CallbackData: &callBackData,
+		})
+	}
+}
 
 func Run(chatId int64, message *tgbotapi.Message) {
 	if message == nil {
@@ -97,7 +122,7 @@ func Run(chatId int64, message *tgbotapi.Message) {
 		return
 	}
 
-	nmsgc := tgbotapi.NewMessage(chatId, "Настройки\n(только не жми на + и - слишком быстро, я могу устать)")
+	nmsgc := tgbotapi.NewMessage(chatId, "Настройки")
 	nmsgc.ReplyMarkup = markUps[root]
 
 	_, err := bot.Bot.Send(nmsgc)
@@ -123,51 +148,17 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 	messageId := message.MessageID
 
 	switch data {
-	case incrementHour:
-		markup := message.ReplyMarkup
-		h, _ := strconv.Atoi(markup.InlineKeyboard[1][0].Text)
-
-		if h+1 < 24 {
-			markup.InlineKeyboard[1][0].Text = strconv.Itoa(h + 1)
-		} else {
-			markup.InlineKeyboard[1][0].Text = strconv.Itoa(0)
-		}
-		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
-	case incrementMinute:
-		markup := message.ReplyMarkup
-		m, _ := strconv.Atoi(markup.InlineKeyboard[1][1].Text)
-
-		if m+1 < 60 {
-			markup.InlineKeyboard[1][1].Text = strconv.Itoa(m + 1)
-		} else {
-			markup.InlineKeyboard[1][1].Text = strconv.Itoa(0)
-		}
-		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
-	case decrementHour:
-		markup := message.ReplyMarkup
-		h, _ := strconv.Atoi(markup.InlineKeyboard[1][0].Text)
-
-		if h-1 > 0 {
-			markup.InlineKeyboard[1][0].Text = strconv.Itoa(h - 1)
-		} else {
-			markup.InlineKeyboard[1][0].Text = strconv.Itoa(23)
-		}
-		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
-	case decrementMinute:
-		markup := message.ReplyMarkup
-		m, _ := strconv.Atoi(markup.InlineKeyboard[1][1].Text)
-
-		if m-1 > 0 {
-			markup.InlineKeyboard[1][1].Text = strconv.Itoa(m - 1)
-		} else {
-			markup.InlineKeyboard[1][1].Text = strconv.Itoa(59)
-		}
-		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
+	case selectHour:
+		markup := markUps[hours]
+		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+	case selectMinute:
+		markup := markUps[minutes]
+		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 	case save:
 		markup := message.ReplyMarkup
-		m, _ := strconv.Atoi(markup.InlineKeyboard[1][1].Text)
-		h, _ := strconv.Atoi(markup.InlineKeyboard[1][0].Text)
-		oo := markup.InlineKeyboard[3][0].Text
+		m, _ := strconv.Atoi(markup.InlineKeyboard[0][1].Text)
+		h, _ := strconv.Atoi(markup.InlineKeyboard[0][0].Text)
+		oo := markup.InlineKeyboard[2][0].Text
 
 		schedule := oo == "on"
 
@@ -195,12 +186,12 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
 	case onOffChange:
 		markup := message.ReplyMarkup
-		m := markup.InlineKeyboard[3][0].Text
+		m := markup.InlineKeyboard[2][0].Text
 
 		if m == "on" {
-			markup.InlineKeyboard[3][0].Text = "off"
+			markup.InlineKeyboard[2][0].Text = "off"
 		} else {
-			markup.InlineKeyboard[3][0].Text = "on"
+			markup.InlineKeyboard[2][0].Text = "on"
 		}
 
 		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
@@ -214,10 +205,28 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 			return
 		}
-		markup.InlineKeyboard[1][1].Text = fmt.Sprint(oldS.Minute)
-		markup.InlineKeyboard[1][0].Text = fmt.Sprint(oldS.Hour)
+		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
+		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
 		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 	default:
+		for _, v := range hoursArray {
+			if "h-"+v == data {
+				markup := markUps[settingsToday]
+				markup.InlineKeyboard[0][0].Text = v
+				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+				return
+			}
+		}
+
+		for _, v := range minutesArray {
+			if "m-"+v == data {
+				markup := markUps[settingsToday]
+				markup.InlineKeyboard[0][1].Text = v
+				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+				return
+			}
+		}
+
 		log.Println("Unsupported callback data: ", data)
 		qr := tgbotapi.NewCallback(callbackQuery.ID, "O.O")
 		bot.Bot.Send(qr)
