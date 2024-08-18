@@ -98,45 +98,30 @@ func remove(setting *models.NewsSettings) {
 }
 
 func run(ctx context.Context, setting *models.NewsSettings) {
-	sleepTime := calcSleepTime(setting, false)
+	now := time.Now()
+	sleepTime := calcSleepTime(setting.Hour, setting.Minute, now.Hour(), now.Minute())
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(sleepTime):
 			now := time.Now()
-			sleepTime = calcSleepTime(setting, true)
+			sleepTime = calcSleepTime(setting.Hour, setting.Minute, now.Hour(), now.Minute())
 			send_news.Run(setting.ChatId)
 			log.Println("Sending news at", now, "for chat", setting.ChatId)
 		}
 	}
 }
 
-func calcSleepTime(setting *models.NewsSettings, s bool) time.Duration {
-	now := time.Now()
-	nHour := now.Hour()
-	nMinute := now.Minute()
+func calcSleepTime(settingHour, settingMinute, nowHour, nowMinute int) time.Duration {
 
-	sHour := setting.Hour
-	sMinute := setting.Minute
+	nowTime := time.Duration(nowHour)*time.Hour + time.Duration(nowMinute)*time.Minute
+	settingTime := time.Duration(settingHour)*time.Hour + time.Duration(settingMinute)*time.Minute
 
-	hd := sHour - nHour
-	md := sMinute - nMinute
+	delta := nowTime - settingTime
 
-	fSleep := time.Duration(0)
-	if hd >= 0 {
-		fSleep = fSleep + time.Duration(hd)*time.Hour
-		if s {
-			fSleep = fSleep + time.Duration(24)*time.Hour
-		}
-	} else {
-		fSleep = fSleep + time.Duration(24+hd)*time.Hour
+	if delta < 0 {
+		delta += time.Duration(24) * time.Hour
 	}
-
-	if md >= 0 {
-		fSleep = fSleep + time.Duration(md)*time.Minute
-	} else {
-		fSleep = fSleep - time.Duration(60+md)*time.Minute
-	}
-	return fSleep
+	return delta
 }

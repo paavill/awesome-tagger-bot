@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"os"
 	"strconv"
 )
@@ -30,7 +29,7 @@ func init() {
 	v = getEnv("BOT_DEBUG")
 	vb, err := strconv.ParseBool(v)
 	if err != nil {
-		log.Fatal(err)
+		//log.Fatal(err)
 	}
 	Env.Bot.Debug = vb
 }
@@ -38,7 +37,7 @@ func init() {
 func getEnv(key string) string {
 	v, ok := os.LookupEnv(key)
 	if !ok {
-		log.Fatal(key + " is not set")
+		//log.Fatal(key + " is not set")
 	}
 	return v
 }
