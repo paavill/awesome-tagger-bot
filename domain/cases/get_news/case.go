@@ -4,6 +4,7 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/antchfx/htmlquery"
@@ -12,10 +13,12 @@ import (
 )
 
 var (
-	site        = "https://kakoysegodnyaprazdnik.ru/"
-	cachedTitle = ""
-	cachedNews  = []string{}
-	cachedDay   = -1
+	site                    = "https://kakoysegodnyaprazdnik.ru/"
+	cachedTitle             = ""
+	cachedNews              = []string{}
+	cachedDay               = -1
+	mux         *sync.Mutex = &sync.Mutex{}
+	muxLocked               = false
 )
 
 func Run(chatId int64) (string, []string, error) {
@@ -23,6 +26,17 @@ func Run(chatId int64) (string, []string, error) {
 		if r := recover(); r != nil {
 			log.Println("Recovered in f", r)
 		}
+	}()
+
+	if muxLocked {
+		bot.Bot.Send(tgbotapi.NewMessage(chatId, "Уже загружаю, осталось чуть-чуть"))
+	}
+
+	mux.Lock()
+	muxLocked = true
+	defer func() {
+		mux.Unlock()
+		muxLocked = false
 	}()
 
 	t, n, ok := getCached()
