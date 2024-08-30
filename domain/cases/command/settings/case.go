@@ -203,13 +203,6 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		markup := markUps[root]
 		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 	case settingsToday:
-		markup := markUps[settingsToday]
-		oldS, err := scheduler.GetNewsSettingById(chatId)
-		if err != nil {
-			sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
-			return
-		}
-
 		messageTime := time.Unix(int64(message.Date), 0)
 		nowTime := time.Now()
 		deltaHours := nowTime.Sub(messageTime).Hours()
@@ -224,13 +217,22 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 Спасибо)
 `
 
-		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+		msg, err := bot.Bot.Send(tgbotapi.EditMessageTextConfig{
 			BaseEdit: tgbotapi.BaseEdit{
 				ChatID:    chatId,
 				MessageID: messageId,
 			},
-			Text: fmt.Sprintf(messageInfo, int(deltaHours), nowTime, nowTime.Add(time.Duration(deltaHours))),
+			Text: fmt.Sprintf(messageInfo, int(deltaHours), nowTime.Format(time.TimeOnly), nowTime.Add(time.Duration(deltaHours)).Format(time.TimeOnly)),
 		})
+
+		log.Println("Error while sending message: ", err, msg)
+
+		markup := markUps[settingsToday]
+		oldS, err := scheduler.GetNewsSettingById(chatId)
+		if err != nil {
+			sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+			return
+		}
 
 		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
 		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
