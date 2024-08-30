@@ -7,13 +7,16 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
 	bt "github.com/paavill/awesome-tagger-bot/bot"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/command/clear_cash"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/command/news"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/command/reset"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/command/settings"
 	"github.com/paavill/awesome-tagger-bot/domain/models"
 	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 )
 
 var (
-	chats   = map[int64]*models.Chat{}
-	ownName = "awesome_tagger_bot"
+	chats = map[int64]*models.Chat{}
 )
 
 // TODO загружать подругому
@@ -37,30 +40,28 @@ func Run(update tgbotapi.Update) {
 	cbq := update.CallbackQuery
 
 	initChatIfNeed(id, chatName)
-	clearCashCommand(id, "")
-	if update.Message != nil {
-		resetCommand(id, update.Message.Text)
+
+	ch, ok := chats[id]
+	if !ok {
+		log.Panic("This shouldn't happen")
 	}
+
+	clear_cash.Run(ch, update.Message)
+	reset.Run(ch, update.Message)
+	news.Run(ch.Id, update.Message)
+	settings.Run(ch.Id, update.Message)
 	processChat(id)
 	callbackProcess(cbq, id)
 	processTagAll(update)
 
-	if _, ok := chats[id]; !ok {
-		log.Panic("This shouldn't happen")
-	}
-
-	ch := chats[id]
+	var err error
 	if ch.MongoId == "" {
-		chat, err := mongo.Chats().Insert(*ch)
-		if err != nil {
-			log.Printf("Error while inserting chat %d to mongo", ch.Id)
-		}
-		chats[chat.Id] = &chat
+		err = mongo.Chats().Insert(ch)
 	} else {
-		err := mongo.Chats().Update(*ch)
-		if err != nil {
-			log.Printf("Error while updating chat %d with mongo", ch.Id)
-		}
+		err = mongo.Chats().Update(ch)
+	}
+	if err != nil {
+		log.Printf("Error while inserting/updating chat %d to mongo", ch.Id)
 	}
 }
 
@@ -137,9 +138,10 @@ func callbackProcess(q *tgbotapi.CallbackQuery, chatId int64) {
 	if data == chats[chatId].UuidCallback {
 		chats[chatId].Users[username] = struct{}{}
 		log.Printf("User %s shared name in chat %d", username, chatId)
-		callBackConfig := tgbotapi.NewCallbackWithAlert(q.ID, "Спасибо, теперь я тебя знаю☺")
+		callBackConfig := tgbotapi.NewCallback(q.ID, "Спасибо, теперь я тебя знаю☺")
 		bt.Bot.Send(callBackConfig)
 	}
+	settings.ProcessCallBack(chatId, q)
 }
 
 func processTagAll(update tgbotapi.Update) {
@@ -149,24 +151,27 @@ func processTagAll(update tgbotapi.Update) {
 	if strings.Contains(update.Message.Text, "@all") {
 		tags := []string{}
 		for u, _ := range chats[update.Message.Chat.ID].Users {
+			if u == update.Message.From.UserName {
+				continue
+			}
 			tags = append(tags, "@"+u)
 		}
 		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
 			`
 Простите, пошумлю:
 `+strings.Join(tags, "\n"))
-		bt.Bot.Send(msg)
-	}
-}
+		allMsg, err := bt.Bot.Send(msg)
+		if err != nil {
+			return
+		}
 
-func clearCashCommand(id int64, command string) {
-	if ch, ok := chats[id]; ok && command == "/clear_cash" {
-		ch.ClearCash = false
-	}
-}
-
-func resetCommand(id int64, command string) {
-	if ch, ok := chats[id]; ok && command == "/reset@awesome_tagger_bot" {
-		ch.New = true
+		edit := tgbotapi.EditMessageTextConfig{
+			BaseEdit: tgbotapi.BaseEdit{
+				ChatID:    update.Message.Chat.ID,
+				MessageID: allMsg.MessageID,
+			},
+			Text: "Я пошумел, всех вызвал!\nИ прибрал за собой😅",
+		}
+		bt.Bot.Send(edit)
 	}
 }
