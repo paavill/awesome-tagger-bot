@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/paavill/awesome-tagger-bot/bot"
@@ -182,7 +183,10 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		qr := tgbotapi.NewCallback(callbackQuery.ID, "Сохранил!)")
 		bot.Bot.Send(qr)
 	case back:
-		v, _ := markUps[root]
+		v := markUps[root]
+		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+			Text: "Настройки",
+		})
 		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
 	case onOffChange:
 		markup := message.ReplyMarkup
@@ -205,6 +209,25 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 			return
 		}
+
+		messageTime := time.Unix(int64(message.Date), 0)
+		nowTime := time.Now()
+		deltaHours := nowTime.Sub(messageTime).Hours()
+
+		messageInfo := `
+Настройки
+
+Учитывайте, что указываете время по Гринвичу (GMT, UTC, разница: %d часов)
+То есть, если  вы указали %s, то новости будут приходить в %s
+
+В чате много людей, и они могут быть в разных часовых поясах🫢
+Спасибо)
+`
+
+		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+			Text: fmt.Sprintf(messageInfo, int(deltaHours), nowTime, nowTime.Add(time.Duration(deltaHours))),
+		})
+
 		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
 		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
 		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
