@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -13,6 +14,7 @@ import (
 )
 
 func main() {
+	time.Local = time.UTC
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	mongo.Init()
