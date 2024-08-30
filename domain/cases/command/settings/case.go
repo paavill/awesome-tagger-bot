@@ -194,6 +194,16 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		}
 		qr := tgbotapi.NewCallback(callbackQuery.ID, "Сохранил!)")
 		bot.Bot.Send(qr)
+
+		v := markUps[root]
+		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+			BaseEdit: tgbotapi.BaseEdit{
+				ChatID:    chatId,
+				MessageID: messageId,
+			},
+			Text: "Настройки",
+		})
+		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
 	case back:
 		v := markUps[root]
 		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
