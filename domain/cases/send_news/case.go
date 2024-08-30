@@ -19,9 +19,18 @@ func Run(chatId int64) {
 func prepareText(title string, news []string) string {
 	result := ""
 	result += title + "\n"
-	for _, n := range news {
+
+	limitedNews := make([]string, 0, 15)
+	for i := 0; i < len(limitedNews) && i < len(news); i++ {
+		limitedNews = append(limitedNews, news[i])
+	}
+
+	for _, n := range limitedNews {
 		result += n + "\n"
 	}
+
+	result += "Информация взята с сайта https://kakoysegodnyaprazdnik.ru/"
+
 	return result
 }
 

@@ -12,8 +12,7 @@ func Run(chatId int64, message *tgbotapi.Message) {
 	}
 
 	if message.Text != "/news" && message.Text != "/news@"+bot.Bot.Self.UserName {
-		send_news.Run(chatId)
+		return
 	}
-
 	send_news.Run(chatId)
 }
