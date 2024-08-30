@@ -1,6 +1,7 @@
 variables:
   TAG: $MAJ.$MIN.$CI_PIPELINE_IID
   TAG_PROD: $MAJ.$MIN.$CI_PIPELINE_IID.$PROD_POSTFIX
+  TAG_TEST: $MAJ.$MIN.$CI_PIPELINE_IID.$TEST_POSTFIX
 
 stages:
   - build
@@ -65,5 +66,24 @@ deploy_prod:
     MONGODB_DB: tagger_prod
     BOT_TOKEN: $BOT_TOKEN_PROD
     TAG: $TAG_PROD
+
+build_test:
+  only:
+    - test
+  <<: *build
+  variables:
+    TAG: $TAG_TEST
+
+deploy_test:
+  only:
+    - test
+  <<: *deploy
+  variables:
+    BOT_DEBUG: false
+    COMPOSE_COMMAND: tagger-test mongo-prod
+    COMPOSE_FILE: ./docker-compose.yaml
+    MONGODB_DB: tagger_test
+    BOT_TOKEN: $BOT_TOKEN_TEST
+    TAG: $TAG_TEST
   
   

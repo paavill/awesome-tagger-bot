@@ -31,3 +31,9 @@ func Chats() ChatsRepo {
 		collection: makeChatRepo(client),
 	}
 }
+
+func NewsSettings() NewsSettingsRepo {
+	return &newsSettingsRepo{
+		collection: makeNewsSettings(client),
+	}
+}

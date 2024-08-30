@@ -1,0 +1,17 @@
+package reset
+
+import (
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/paavill/awesome-tagger-bot/bot"
+	"github.com/paavill/awesome-tagger-bot/domain/models"
+)
+
+func Run(chat *models.Chat, message *tgbotapi.Message) {
+	if message == nil {
+		return
+	}
+
+	if chat != nil && (message.Text == "/reset" || message.Text == "/reset@"+bot.Bot.Self.UserName) {
+		chat.New = true
+	}
+}
