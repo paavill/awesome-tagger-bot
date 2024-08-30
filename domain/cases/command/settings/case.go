@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-<<<<<<< HEAD
 	"sync"
-=======
->>>>>>> main
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -17,10 +14,7 @@ import (
 )
 
 var (
-<<<<<<< HEAD
 	mux           = &sync.Mutex{}
-=======
->>>>>>> main
 	nul           = "nil"
 	root          = "root"
 	hours         = "hours"
