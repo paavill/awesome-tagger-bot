@@ -20,9 +20,9 @@ func prepareText(title string, news []string) string {
 	result := ""
 	result += title + "\n"
 
-	limitedNews := make([]string, 0, 15)
+	limitedNews := make([]string, 15)
 	for i := 0; i < len(limitedNews) && i < len(news); i++ {
-		limitedNews = append(limitedNews, news[i])
+		limitedNews[i] = news[i]
 	}
 
 	for _, n := range limitedNews {
