@@ -20,7 +20,7 @@ driver = webdriver.Firefox(service=service, options=options)
 
 try:
     driver.get('https://kakoysegodnyaprazdnik.ru')
-    print("waiting")
+    
     submit_button = WebDriverWait(driver, 600).until(
         EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']"))
     )
