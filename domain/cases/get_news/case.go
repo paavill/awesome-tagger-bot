@@ -29,6 +29,7 @@ func Run(chatId int64) (string, []string, error) {
 	bot.Bot.Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 10 секунд)..."))
 
 	body := getHtml()
+	log.Println("Get html: " + body)
 	bodyReader := strings.NewReader(body)
 
 	node, err := htmlquery.Parse(bodyReader)
