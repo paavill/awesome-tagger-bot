@@ -225,6 +225,10 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 `
 
 		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+			BaseEdit: tgbotapi.BaseEdit{
+				ChatID:    chatId,
+				MessageID: messageId,
+			},
 			Text: fmt.Sprintf(messageInfo, int(deltaHours), nowTime, nowTime.Add(time.Duration(deltaHours))),
 		})
 
