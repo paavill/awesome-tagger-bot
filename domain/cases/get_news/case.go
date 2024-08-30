@@ -74,7 +74,7 @@ func Run(chatId int64) (string, []string, error) {
 		for _, v := range sibbling.Attr {
 			attrs[v.Key] = v.Val
 		}
-		if v, ok := attrs["itemprop"]; ok && v == "suggestedAnswer" {
+		if v, ok := attrs["itemprop"]; ok && (v == "suggestedAnswer" || v == "acceptedAnswer") {
 			text := htmlquery.InnerText(sibbling)
 			news = append(news, text)
 		}
