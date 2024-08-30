@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -13,6 +14,7 @@ import (
 )
 
 var (
+	mux           = &sync.Mutex{}
 	nul           = "nil"
 	root          = "root"
 	hours         = "hours"
@@ -239,9 +241,17 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			return
 		}
 
+		mux.Lock()
+		defer mux.Unlock()
+		oldMinute := markup.InlineKeyboard[0][1].Text
+		oldHour := markup.InlineKeyboard[0][0].Text
+
 		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
 		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
 		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+
+		markup.InlineKeyboard[0][1].Text = oldMinute
+		markup.InlineKeyboard[0][0].Text = oldHour
 	default:
 		for _, v := range hoursArray {
 			if "h-"+v == data {
