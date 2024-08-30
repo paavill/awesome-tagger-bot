@@ -16,7 +16,7 @@ driver = webdriver.Firefox(service=service, options=options)
 
 try:
     driver.get('https://kakoysegodnyaprazdnik.ru')
-    time.sleep(10)
+    time.sleep(30)
     driver.get('https://kakoysegodnyaprazdnik.ru')
     page_html = driver.page_source
     print(page_html)
