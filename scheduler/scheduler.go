@@ -100,6 +100,7 @@ func remove(setting *models.NewsSettings) {
 func run(ctx context.Context, setting *models.NewsSettings) {
 	now := time.Now()
 	sleepTime := calcSleepTime(setting.Hour, setting.Minute, now.Hour(), now.Minute())
+	log.Println(sleepTime.String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -121,7 +122,9 @@ func calcSleepTime(settingHour, settingMinute, nowHour, nowMinute int) time.Dura
 	delta := nowTime - settingTime
 
 	if delta < 0 {
-		delta += time.Duration(24) * time.Hour
+		delta *= -1
+	} else {
+		delta = time.Duration(24)*time.Hour + time.Duration(nowMinute) - delta
 	}
 	return delta
 }

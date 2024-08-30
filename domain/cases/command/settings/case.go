@@ -76,6 +76,12 @@ var (
 				[]tgbotapi.InlineKeyboardButton{},
 				[]tgbotapi.InlineKeyboardButton{},
 				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{
+					tgbotapi.InlineKeyboardButton{
+						Text:         "Назад",
+						CallbackData: &settingsToday,
+					},
+				},
 			},
 		},
 		minutes: tgbotapi.InlineKeyboardMarkup{
@@ -90,6 +96,12 @@ var (
 				[]tgbotapi.InlineKeyboardButton{},
 				[]tgbotapi.InlineKeyboardButton{},
 				[]tgbotapi.InlineKeyboardButton{},
+				[]tgbotapi.InlineKeyboardButton{
+					tgbotapi.InlineKeyboardButton{
+						Text:         "Назад",
+						CallbackData: &settingsToday,
+					},
+				},
 			},
 		},
 	}
@@ -159,7 +171,7 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		markup := message.ReplyMarkup
 		m, _ := strconv.Atoi(markup.InlineKeyboard[0][1].Text)
 		h, _ := strconv.Atoi(markup.InlineKeyboard[0][0].Text)
-		oo := markup.InlineKeyboard[2][0].Text
+		oo := markup.InlineKeyboard[1][0].Text
 
 		schedule := oo == "on"
 
@@ -185,6 +197,10 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 	case back:
 		v := markUps[root]
 		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+			BaseEdit: tgbotapi.BaseEdit{
+				ChatID:    chatId,
+				MessageID: messageId,
+			},
 			Text: "Настройки",
 		})
 		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
@@ -203,31 +219,10 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		markup := markUps[root]
 		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 	case settingsToday:
-		messageTime := time.Unix(int64(message.Date), 0)
-		nowTime := time.Now()
-		deltaHours := nowTime.Sub(messageTime).Hours()
-
-		messageInfo := `
-Настройки
-
-Учитывайте, что указываете время по Гринвичу (GMT, UTC, разница: %d часов)
-То есть, если  вы указали %s, то новости будут приходить в %s
-
-В чате много людей, и они могут быть в разных часовых поясах🫢
-Спасибо)
-`
-
-		msg, err := bot.Bot.Send(tgbotapi.EditMessageTextConfig{
-			BaseEdit: tgbotapi.BaseEdit{
-				ChatID:    chatId,
-				MessageID: messageId,
-			},
-			Text: fmt.Sprintf(messageInfo, int(deltaHours), nowTime.Format(time.TimeOnly), nowTime.Add(time.Duration(deltaHours)).Format(time.TimeOnly)),
-		})
-
-		log.Println("Error while sending message: ", err, msg)
+		sendDetailInfo(chatId, messageId)
 
 		markup := markUps[settingsToday]
+
 		oldS, err := scheduler.GetNewsSettingById(chatId)
 		if err != nil {
 			sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
@@ -242,6 +237,7 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			if "h-"+v == data {
 				markup := markUps[settingsToday]
 				markup.InlineKeyboard[0][0].Text = v
+				sendDetailInfo(chatId, messageId)
 				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 				return
 			}
@@ -251,6 +247,7 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			if "m-"+v == data {
 				markup := markUps[settingsToday]
 				markup.InlineKeyboard[0][1].Text = v
+				sendDetailInfo(chatId, messageId)
 				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 				return
 			}
@@ -274,5 +271,29 @@ func sendMarkupUpdate(chatId int64, messageId int, markup *tgbotapi.InlineKeyboa
 		log.Println("Error sending settings message: ", err)
 		alert := tgbotapi.NewCallbackWithAlert(qid, "Меня вот так ругает TG (не надо так быстро): "+err.Error()+" (это в секундах)")
 		bot.Bot.Send(alert)
+	}
+}
+
+func sendDetailInfo(chatId int64, messageId int) {
+	nowTime := time.Now()
+	messageInfo := `
+Настройки
+
+Учитывайте, что указываете время по Гринвичу (GMT, UTC)
+То есть, мое время: %s
+
+В чате много людей, и они могут быть в разных часовых поясах🫢
+Спасибо)
+`
+
+	_, err := bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+		BaseEdit: tgbotapi.BaseEdit{
+			ChatID:    chatId,
+			MessageID: messageId,
+		},
+		Text: fmt.Sprintf(messageInfo, nowTime.Format(time.DateTime)),
+	})
+	if err != nil {
+		log.Println("Error sending settings message: ", err)
 	}
 }

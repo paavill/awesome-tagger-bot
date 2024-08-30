@@ -19,6 +19,12 @@ var (
 )
 
 func Run(chatId int64) (string, []string, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Recovered in f", r)
+		}
+	}()
+
 	t, n, ok := getCached()
 	if ok {
 		log.Println("Get cached news")
