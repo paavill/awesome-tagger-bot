@@ -29,7 +29,7 @@ func (c *mongoChat) fromModel(model models.Chat) {
 	c.UuidCallback = model.UuidCallback
 	c.ChatName = model.ChatName
 	users := make([]string, 0, len(model.Users))
-	for k, _ := range model.Users {
+	for k := range model.Users {
 		users = append(users, k)
 	}
 	c.Users = users
@@ -50,8 +50,8 @@ func (c *mongoChat) toModel() models.Chat {
 
 type ChatsRepo interface {
 	GetById(id string) (models.Chat, error)
-	Insert(chat models.Chat) (models.Chat, error)
-	Update(chat models.Chat) error
+	Insert(chat *models.Chat) error
+	Update(chat *models.Chat) error
 	FindAll() ([]models.Chat, error)
 }
 
@@ -95,20 +95,20 @@ func (r *chatRepo) GetById(id string) (models.Chat, error) {
 	return mch.toModel(), nil
 }
 
-func (r *chatRepo) Insert(model models.Chat) (models.Chat, error) {
+func (r *chatRepo) Insert(model *models.Chat) error {
 	mch := mongoChat{}
 	model.MongoId = primitive.NewObjectID().Hex()
-	mch.fromModel(model)
+	mch.fromModel(*model)
 	_, err := r.collection.InsertOne(context.Background(), mch)
-	return model, err
+	return err
 }
 
-func (r *chatRepo) Update(model models.Chat) error {
+func (r *chatRepo) Update(model *models.Chat) error {
 	if model.MongoId == "" {
 		log.Panic("This shouldn't happen")
 	}
 	mch := mongoChat{}
-	mch.fromModel(model)
+	mch.fromModel(*model)
 	_, err := r.collection.ReplaceOne(context.Background(), bson.M{"_id": mch.MongoId}, mch)
 	return err
 }
