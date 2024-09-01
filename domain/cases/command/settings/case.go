@@ -218,12 +218,12 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
 	case onOffChange:
 		markup := message.ReplyMarkup
-		m := markup.InlineKeyboard[2][0].Text
+		m := markup.InlineKeyboard[1][0].Text
 
 		if m == "on" {
-			markup.InlineKeyboard[2][0].Text = "off"
+			markup.InlineKeyboard[1][0].Text = "off"
 		} else {
-			markup.InlineKeyboard[2][0].Text = "on"
+			markup.InlineKeyboard[1][0].Text = "on"
 		}
 
 		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
