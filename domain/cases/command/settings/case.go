@@ -218,12 +218,12 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
 	case onOffChange:
 		markup := message.ReplyMarkup
-		m := markup.InlineKeyboard[2][0].Text
+		m := markup.InlineKeyboard[1][0].Text
 
 		if m == "on" {
-			markup.InlineKeyboard[2][0].Text = "off"
+			markup.InlineKeyboard[1][0].Text = "off"
 		} else {
-			markup.InlineKeyboard[2][0].Text = "on"
+			markup.InlineKeyboard[1][0].Text = "on"
 		}
 
 		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
@@ -241,17 +241,27 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			return
 		}
 
+		newScheduleValue := ""
+		if oldS.Schedule {
+			newScheduleValue = "on"
+		} else {
+			newScheduleValue = "off"
+		}
+
 		mux.Lock()
 		defer mux.Unlock()
 		oldMinute := markup.InlineKeyboard[0][1].Text
 		oldHour := markup.InlineKeyboard[0][0].Text
+		oldScheduleValue := markup.InlineKeyboard[1][0].Text
 
 		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
 		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
+		markup.InlineKeyboard[1][0].Text = newScheduleValue
 		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
 
 		markup.InlineKeyboard[0][1].Text = oldMinute
 		markup.InlineKeyboard[0][0].Text = oldHour
+		markup.InlineKeyboard[1][0].Text = oldScheduleValue
 	default:
 		for _, v := range hoursArray {
 			if "h-"+v == data {

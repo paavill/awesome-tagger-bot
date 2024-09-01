@@ -40,11 +40,7 @@ func Run() {
 }
 
 func Process(setting *models.NewsSettings) {
-	if setting.Schedule {
-		add(setting)
-	} else {
-		remove(setting)
-	}
+	add(setting)
 
 	var err error
 	if setting.MongoId == "" {
@@ -87,7 +83,10 @@ func add(setting *models.NewsSettings) {
 		setting: setting,
 	}
 
-	go run(ctx, setting)
+	if setting.Schedule {
+		go run(ctx, setting)
+	}
+
 }
 
 func remove(setting *models.NewsSettings) {
