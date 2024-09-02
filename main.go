@@ -8,12 +8,15 @@ import (
 
 	"github.com/paavill/awesome-tagger-bot/balancer"
 	"github.com/paavill/awesome-tagger-bot/bot"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/get_image"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/process_update"
 	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 	"github.com/paavill/awesome-tagger-bot/scheduler"
 )
 
 func main() {
+	get_image.Run("")
+
 	time.Local = time.UTC
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
