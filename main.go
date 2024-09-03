@@ -15,7 +15,10 @@ import (
 )
 
 func main() {
-	get_image.Run("")
+	_, err := get_image.Run("тестовое изображение")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	time.Local = time.UTC
 	log.SetFlags(log.LstdFlags | log.Lshortfile)

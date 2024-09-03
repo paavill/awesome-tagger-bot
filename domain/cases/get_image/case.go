@@ -2,12 +2,19 @@ package get_image
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
+	"os"
+	"time"
 )
 
 var (
@@ -40,46 +47,88 @@ type GenerateParams struct {
 }
 
 type GenerateRequest struct {
-	ModelId string         `json:"model_id"`
+	ModelId int            `json:"model_id"`
 	Params  GenerateParams `json:"params"`
 }
 
+type GenerateResponseStatus string
+
+const (
+	GenerateResponseStatusInitial    GenerateResponseStatus = "INITIAL"
+	GenerateResponseStatusProcessing GenerateResponseStatus = "PROCESSING"
+	GenerateResponseStatusDone       GenerateResponseStatus = "DONE"
+	GenerateResponseStatusFail       GenerateResponseStatus = "FAIL"
+)
+
 type GenerateResponse struct {
-	Uuid        string `json:"uuid"`
-	Status      string `json:"status"`
-	ModelStatus string `json:"model_status"`
+	Uuid        string                 `json:"uuid"`
+	Status      GenerateResponseStatus `json:"status"`
+	ModelStatus string                 `json:"model_status"`
 }
 
 type CheckGenerateStatusResponse struct {
-	Uuid             string   `json:"uuid"`
-	Status           string   `json:"status"`
-	Images           []string `json:"images"`
-	ErrorDescription string   `json:"errorDescription"`
-	Censored         bool     `json:"censored"`
+	Uuid             string                 `json:"uuid"`
+	Status           GenerateResponseStatus `json:"status"`
+	Images           []string               `json:"images"`
+	ErrorDescription string                 `json:"errorDescription"`
+	Censored         bool                   `json:"censored"`
 }
 
-type GetModel struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Type    string `json:"type"`
+type GetModelRequest struct {
+	Id      int     `json:"id"`
+	Name    string  `json:"name"`
+	Version float64 `json:"version"`
+	Type    string  `json:"type"`
 }
 
 func Run(query string) ([]string, error) {
-	err := generate()
+	images, err := generate(query)
 	if err != nil {
 		return nil, err
 	}
+
+	if len(images) != 1 {
+		return nil, fmt.Errorf("expected 1 image, got %d", len(images))
+	}
+
+	base64Image := images[0]
+	os.WriteFile("raw.txt", []byte(base64Image), os.ModePerm)
+	reader := bytes.NewBuffer([]byte(base64Image))
+
+	decoder := base64.NewDecoder(base64.StdEncoding, reader)
+
+	rawImage := make([]byte, len(base64Image))
+	n, err := decoder.Read(rawImage)
+	if err != nil || n == 0 {
+		return nil, fmt.Errorf("error while decoding base64 image due: " + err.Error())
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(rawImage))
+	if err != nil {
+		return nil, fmt.Errorf("error while decoding image due: " + err.Error())
+	}
+
+	f, err := os.Create("image.jpg")
+	if err != nil {
+		return nil, fmt.Errorf("error while creating file due: " + err.Error())
+	}
+
+	err = jpeg.Encode(f, img, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding image due: " + err.Error())
+	}
+
+	return nil, nil
 }
 
-func generate(query string) error {
+func generate(query string) ([]string, error) {
 	path := "/key/api/v1/text2image/run"
 
 	req := prepareRequest(kandinskyApiHost+path, http.MethodPost, headers)
 
 	modelId, err := getModelId()
 	if err != nil {
-		return fmt.Errorf("error while getting model id due: " + err.Error())
+		return nil, fmt.Errorf("error while getting model id due: " + err.Error())
 	}
 
 	reqBody := GenerateRequest{
@@ -97,47 +146,129 @@ func generate(query string) error {
 		},
 	}
 
-	reqBodyJson, err := json.Marshal(reqBody)
+	reqBodyJsonParams, err := json.Marshal(reqBody.Params)
 	if err != nil {
-		return fmt.Errorf("error while marshaling request body due: " + err.Error())
+		return nil, fmt.Errorf("error while marshaling request body due: " + err.Error())
 	}
 
-	req.Body = io.NopCloser(bytes.NewBuffer(reqBodyJson))
+	buffer := &bytes.Buffer{}
+	multipartWriter := multipart.NewWriter(buffer)
 
-	//response, err := http.DefaultClient.Do()
+	err = multipartWriter.WriteField("model_id", fmt.Sprint(reqBody.ModelId))
+	if err != nil {
+		return nil, fmt.Errorf("error while creating form field due: " + err.Error())
+	}
+
+	mimeHeader := textproto.MIMEHeader{}
+	mimeHeader.Add("Content-Type", "application/json")
+	mimeHeader.Add("Content-Disposition", `form-data; name="params"`)
+	paramsWriter, err := multipartWriter.CreatePart(mimeHeader)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating form field due: " + err.Error())
+	}
+	_, err = paramsWriter.Write(reqBodyJsonParams)
+	if err != nil {
+		return nil, fmt.Errorf("error while writing to form field due: " + err.Error())
+	}
+
+	err = multipartWriter.Close()
+	if err != nil {
+		return nil, fmt.Errorf("error while closing multipart writer due: " + err.Error())
+	}
+
+	req.Body = io.NopCloser(buffer)
+
+	contentType := multipartWriter.FormDataContentType()
+	req.Header.Set("Content-Type", contentType)
+
+	response, err := http.DefaultClient.Do(&req)
+	defer response.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("error while sending request due: " + err.Error())
+	}
+
+	rawResponse, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading response body due: " + err.Error())
+	}
+
+	generateResponse := &GenerateResponse{}
+	err = json.Unmarshal(rawResponse, generateResponse)
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshalling response body due: " + err.Error())
+	}
+
+	log.Printf("generateResponse: %+v", generateResponse)
+
+	if generateResponse.ModelStatus == "DISABLED_BY_QUEUE" {
+		return nil, fmt.Errorf("model is disabled by queue")
+	}
+
+	uuid := generateResponse.Uuid
+	images, err := checkGeneration(uuid)
+	if err != nil {
+		return nil, fmt.Errorf("error while checking generation due: " + err.Error())
+	}
+	return images, nil
 }
 
-func checkGeneration(uuid string) {
+func checkGeneration(uuid string) ([]string, error) {
 	path := "/key/api/v1/text2image/status/" + uuid
-
+	for retryCount := 0; retryCount < 120; retryCount++ {
+		req := prepareRequest(kandinskyApiHost+path, http.MethodGet, headers)
+		resp, err := http.DefaultClient.Do(&req)
+		defer resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("error while sending request due: " + err.Error())
+		}
+		rawResponse, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error while reading response body due: " + err.Error())
+		}
+		checkGenerateStatusResponse := &CheckGenerateStatusResponse{}
+		err = json.Unmarshal(rawResponse, checkGenerateStatusResponse)
+		if err != nil {
+			return nil, fmt.Errorf("error while unmarshalling response body due: " + err.Error())
+		}
+		if checkGenerateStatusResponse.Status == GenerateResponseStatusDone {
+			return checkGenerateStatusResponse.Images, nil
+		}
+		if checkGenerateStatusResponse.Status == GenerateResponseStatusFail {
+			return nil, fmt.Errorf("error while generating image due: " + checkGenerateStatusResponse.ErrorDescription)
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return nil, fmt.Errorf("error while checking generation status")
 }
 
-func getModelId() (string, error) {
-	path := "key/api/v1/models"
+func getModelId() (int, error) {
+	path := "/key/api/v1/models"
 	req := prepareRequest(kandinskyApiHost+path, http.MethodGet, headers)
 
 	response, err := http.DefaultClient.Do(&req)
 	defer response.Body.Close()
 	if err != nil {
-		return "", fmt.Errorf("error while getting model id due: " + err.Error())
+		return 0, fmt.Errorf("error while getting model id due: " + err.Error())
 	}
 
 	rawResponse, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", fmt.Errorf("error while reading response body due: " + err.Error())
+		return 0, fmt.Errorf("error while reading response body due: " + err.Error())
 	}
 
-	models := []GetModel{}
+	models := &[]GetModelRequest{}
 	err = json.Unmarshal(rawResponse, models)
 	if err != nil {
-		return "", fmt.Errorf("error while unmarshalling response body due: " + err.Error())
+		return 0, fmt.Errorf("error while unmarshalling response body due: " + err.Error())
 	}
 
-	if len(models) == 0 {
-		return "", fmt.Errorf("error while unmarshalling response body due: no models found")
+	modelValue := *models
+
+	if len(modelValue) == 0 {
+		return 0, fmt.Errorf("error while unmarshalling response body due: no models found")
 	}
 
-	return models[0].Id, nil
+	return modelValue[0].Id, nil
 }
 
 func prepareRequest(urlRaw string, method string, headersRaw map[string]string) http.Request {
