@@ -20,8 +20,8 @@ import (
 var (
 	kandinskyApiHost   = "https://api-key.fusionbrain.ai"
 	kandinskyTypesHost = "https://cdn.fusionbrain.ai/static/styles/key"
-	apiKey             = "Key 0FE09D3D0FD367E48EBD7A6A6A66F541"
-	secretKey          = "Secret 5B9B8424D6046478E11815B029EDD7EC"
+	apiKey             = "Key"
+	secretKey          = "Secret"
 	keyHeader          = "X-Key"
 	secretHeader       = "X-Secret"
 	headers            = map[string]string{

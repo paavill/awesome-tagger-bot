@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -8,20 +9,37 @@ import (
 
 	"github.com/paavill/awesome-tagger-bot/balancer"
 	"github.com/paavill/awesome-tagger-bot/bot"
-	"github.com/paavill/awesome-tagger-bot/domain/cases/get_image"
+	"github.com/paavill/awesome-tagger-bot/context"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/process_update"
+	domainContext "github.com/paavill/awesome-tagger-bot/domain/context"
+	domainLogger "github.com/paavill/awesome-tagger-bot/domain/logger"
+	"github.com/paavill/awesome-tagger-bot/logger"
 	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 	"github.com/paavill/awesome-tagger-bot/scheduler"
+	"github.com/paavill/awesome-tagger-bot/services"
 )
 
 func main() {
-	_, err := get_image.Run("нарисуй мышку")
-	if err != nil {
-		log.Fatal(err)
-	}
+	//_, err := get_image.Run("нарисуй мышку")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	time.Local = time.UTC
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	servicesBuilder := services.NewBuilder().Kandinsky(nil)
+	logger := logger.New(domainLogger.Debug)
+
+	ctx, err := context.NewBuilder().
+		Logger(logger).
+		ServicesBuilder(servicesBuilder).
+		Build()
+
+	if err != nil {
+		panic(fmt.Sprintf("unable to create context: %s", err))
+	}
+
+	domainContext.Set(ctx)
 
 	mongo.Init()
 	bot.Init()
