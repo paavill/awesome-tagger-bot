@@ -91,15 +91,12 @@ func Run(query string) ([]string, error) {
 		return nil, fmt.Errorf("expected 1 image, got %d", len(images))
 	}
 
-	base64Image := images[0]
-	os.WriteFile("raw.txt", []byte(base64Image), os.ModePerm)
-	reader := bytes.NewBuffer([]byte(base64Image))
-
-	decoder := base64.NewDecoder(base64.StdEncoding, reader)
+	base64Image := []byte(images[0])
 
 	rawImage := make([]byte, len(base64Image))
-	n, err := decoder.Read(rawImage)
-	if err != nil || n == 0 {
+	n, err := base64.RawStdEncoding.Decode(rawImage, base64Image)
+	log.Println("decoded bytes:", n)
+	if err != nil {
 		return nil, fmt.Errorf("error while decoding base64 image due: " + err.Error())
 	}
 
@@ -112,6 +109,7 @@ func Run(query string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error while creating file due: " + err.Error())
 	}
+	defer f.Close()
 
 	err = jpeg.Encode(f, img, nil)
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	_, err := get_image.Run("тестовое изображение")
+	_, err := get_image.Run("нарисуй мышку")
 	if err != nil {
 		log.Fatal(err)
 	}
