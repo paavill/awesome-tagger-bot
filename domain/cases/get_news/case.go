@@ -28,9 +28,9 @@ func Run(chatId int64) (string, []string, error) {
 		}
 	}()
 
-	if muxLocked {
-		bot.Bot.Send(tgbotapi.NewMessage(chatId, "Уже загружаю, осталось чуть-чуть"))
-	}
+	//if muxLocked {
+	//bot.Bot.Send(tgbotapi.NewMessage(chatId, "Уже загружаю, осталось чуть-чуть"))
+	//}
 
 	mux.Lock()
 	muxLocked = true
