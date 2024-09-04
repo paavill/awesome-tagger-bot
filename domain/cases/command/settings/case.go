@@ -266,9 +266,16 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		for _, v := range hoursArray {
 			if "h-"+v == data {
 				markup := markUps[settingsToday]
+
+				mux.Lock()
+				defer mux.Unlock()
+				oldValue := markup.InlineKeyboard[0][0].Text
+
 				markup.InlineKeyboard[0][0].Text = v
 				sendDetailInfo(chatId, messageId)
 				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+
+				markup.InlineKeyboard[0][0].Text = oldValue
 				return
 			}
 		}
@@ -276,9 +283,16 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		for _, v := range minutesArray {
 			if "m-"+v == data {
 				markup := markUps[settingsToday]
+
+				mux.Lock()
+				defer mux.Unlock()
+				oldValue := markup.InlineKeyboard[0][1].Text
+
 				markup.InlineKeyboard[0][1].Text = v
 				sendDetailInfo(chatId, messageId)
 				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+
+				markup.InlineKeyboard[0][1].Text = oldValue
 				return
 			}
 		}
