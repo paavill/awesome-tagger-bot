@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	// TODO race condition
 	newsQueue = map[int64]struct {
 		cancel  context.CancelFunc
 		setting *models.NewsSettings

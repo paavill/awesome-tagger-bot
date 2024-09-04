@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	bt "github.com/paavill/awesome-tagger-bot/bot"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/command/clear_cash"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/command/generate_image"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/command/news"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/command/reset"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/command/settings"
@@ -50,6 +51,7 @@ func Run(update tgbotapi.Update) {
 	reset.Run(ch, update.Message)
 	news.Run(ch.Id, update.Message)
 	settings.Run(ch.Id, update.Message)
+	generate_image.Run(update.Message)
 	processChat(id)
 	callbackProcess(cbq, id)
 	processTagAll(update)

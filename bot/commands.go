@@ -21,6 +21,10 @@ func initCommands() {
 				Command:     "/settings",
 				Description: "Настройки",
 			},
+			tgbotapi.BotCommand{
+				Command:     "/generate_image",
+				Description: "Сгенерировать изображение",
+			},
 			/*tgbotapi.BotCommand{
 				Command:     "/clear_cash",
 				Description: "(Пока не работает) Очистка пользователей из кеша бота",

@@ -17,17 +17,15 @@ import (
 	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 	"github.com/paavill/awesome-tagger-bot/scheduler"
 	"github.com/paavill/awesome-tagger-bot/services"
+	"github.com/paavill/awesome-tagger-bot/services/kandinsky"
 )
 
 func main() {
-	//_, err := get_image.Run("нарисуй мышку")
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
 
 	time.Local = time.UTC
 
-	servicesBuilder := services.NewBuilder().Kandinsky(nil)
+	kandinsky := kandinsky.NewService("", "", "")
+	servicesBuilder := services.NewBuilder().Kandinsky(kandinsky)
 	logger := logger.New(domainLogger.Debug)
 
 	ctx, err := context.NewBuilder().
