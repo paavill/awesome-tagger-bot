@@ -2,6 +2,7 @@ package get_news
 
 import (
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/antchfx/htmlquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/uuid"
 	"github.com/paavill/awesome-tagger-bot/bot"
 )
 
@@ -22,8 +24,11 @@ var (
 )
 
 func Run(chatId int64) (string, []string, error) {
+	var body string
 	defer func() {
 		if r := recover(); r != nil {
+			fileUuid := uuid.New().String()
+			os.WriteFile("./"+fileUuid+".html", []byte(body), 0777)
 			log.Println("Recovered in f", r)
 		}
 	}()
@@ -48,7 +53,7 @@ func Run(chatId int64) (string, []string, error) {
 	log.Println("Get news from " + site)
 	bot.Bot.Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 30 секунд)..."))
 
-	body := getHtml()
+	body = getHtml()
 	bodyReader := strings.NewReader(body)
 
 	node, err := htmlquery.Parse(bodyReader)
@@ -68,6 +73,9 @@ func Run(chatId int64) (string, []string, error) {
 		log.Println("Error while get news " + site + " " + err.Error())
 	}
 
+	if rn == nil {
+		panic("sibling is nil")
+	}
 	sibbling := rn.FirstChild
 	for sibbling.NextSibling != nil {
 		attrs := map[string]string{}
