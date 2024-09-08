@@ -12,6 +12,6 @@ func Run(chat *models.Chat, message *tgbotapi.Message) {
 	}
 
 	if chat != nil && (message.Text == "/clear_cash" || message.Text == "/clear_cash@"+bot.Bot.Self.UserName) {
-		chat.ClearCash = false
+		//chat.ClearCash = false
 	}
 }
