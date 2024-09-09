@@ -1,27 +1,26 @@
 package bot
 
 import (
-	"log"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/paavill/awesome-tagger-bot/domain/logger"
 )
 
-func initCommands() {
-	_, err := Bot.Send(tgbotapi.SetMyCommandsConfig{
+func initCommands(logger logger.Logger, bot *tgbotapi.BotAPI) {
+	_, err := bot.Send(tgbotapi.SetMyCommandsConfig{
 		Commands: []tgbotapi.BotCommand{
-			tgbotapi.BotCommand{
+			{
 				Command:     "/reset",
 				Description: "Запрос кнопки \"Поделиться именем\"",
 			},
-			tgbotapi.BotCommand{
+			{
 				Command:     "/news",
 				Description: "Какой сегодня день?",
 			},
-			tgbotapi.BotCommand{
+			{
 				Command:     "/settings",
 				Description: "Настройки",
 			},
-			tgbotapi.BotCommand{
+			{
 				Command:     "/generate_image",
 				Description: "Сгенерировать изображение",
 			},
@@ -31,5 +30,5 @@ func initCommands() {
 			},*/
 		},
 	})
-	log.Println("Init command err:", err.Error())
+	logger.Error("init bot command err: %s", err)
 }

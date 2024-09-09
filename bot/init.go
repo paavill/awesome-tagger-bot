@@ -1,18 +1,20 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/paavill/awesome-tagger-bot/config"
+	"github.com/paavill/awesome-tagger-bot/domain/logger"
 )
 
-func initBot() {
+func initBot(logger logger.Logger) (*tgbotapi.BotAPI, error) {
 	tokenFromFileRaw, err := os.ReadFile(config.Env.Bot.TokenFilename)
 	if err != nil {
-		log.Println("Error reading Token file " + err.Error())
+		logger.Error("reading Token file due: %s", err)
 	}
 	tokenFromFile := string(tokenFromFileRaw)
 	tokenFromFile = strings.ReplaceAll(tokenFromFile, "\n", "")
@@ -20,7 +22,7 @@ func initBot() {
 	tokenFromEnv := config.Env.Bot.Token
 
 	if tokenFromFile != "" && tokenFromEnv != "" && tokenFromFile != tokenFromEnv {
-		log.Panic("Token from file and env var are different")
+		return nil, fmt.Errorf("token from file and env var are different")
 	}
 
 	var token string
@@ -30,9 +32,11 @@ func initBot() {
 		token = tokenFromEnv
 	}
 
-	Bot, err = tgbotapi.NewBotAPI(token)
+	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Panic(err)
 	}
-	Bot.Debug = config.Env.Bot.Debug
+	bot.Debug = config.Env.Bot.Debug
+
+	return bot, nil
 }
