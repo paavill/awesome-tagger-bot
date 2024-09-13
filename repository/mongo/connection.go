@@ -7,15 +7,18 @@ import (
 	"time"
 
 	"github.com/paavill/awesome-tagger-bot/config"
+	"github.com/paavill/awesome-tagger-bot/domain/connection"
+	"github.com/paavill/awesome-tagger-bot/domain/repositories"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var (
-	client *mongo.Client
-)
+type conn struct {
+	chat         *chatRepo
+	newsSettings *newsSettingsRepo
+}
 
-func Init() {
+func New() connection.Connection {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -29,17 +32,16 @@ func Init() {
 		log.Panic(err)
 	}
 
-	client = c
-}
-
-func Chats() ChatsRepo {
-	return &chatRepo{
-		collection: makeChatRepo(client),
+	return &conn{
+		chat:         &chatRepo{makeChatRepo(c)},
+		newsSettings: &newsSettingsRepo{makeNewsSettings(c)},
 	}
 }
 
-func NewsSettings() NewsSettingsRepo {
-	return &newsSettingsRepo{
-		collection: makeNewsSettings(client),
-	}
+func (c *conn) Chat() repositories.Chat {
+	return c.chat
+}
+
+func (c *conn) NewsSettings() repositories.NewsSettings {
+	return c.newsSettings
 }

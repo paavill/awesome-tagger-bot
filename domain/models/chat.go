@@ -6,6 +6,4 @@ type Chat struct {
 	MongoId      string
 	UuidCallback string
 	Users        map[string]struct{}
-	New          bool
-	ClearCash    bool
 }

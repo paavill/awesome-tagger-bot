@@ -1,13 +1,19 @@
 package context
 
 import (
+	"github.com/paavill/awesome-tagger-bot/domain/connection"
 	"github.com/paavill/awesome-tagger-bot/domain/logger"
 	"github.com/paavill/awesome-tagger-bot/domain/services"
 )
 
 type ctx struct {
-	services services.Services
-	logger   logger.Logger
+	connection connection.Connection
+	services   services.Services
+	logger     logger.Logger
+}
+
+func (c *ctx) Connection() connection.Connection {
+	return c.connection
 }
 
 func (c *ctx) Services() services.Services {

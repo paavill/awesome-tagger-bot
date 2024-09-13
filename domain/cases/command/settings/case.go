@@ -9,7 +9,9 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/paavill/awesome-tagger-bot/bot"
+	"github.com/paavill/awesome-tagger-bot/domain/context"
 	"github.com/paavill/awesome-tagger-bot/domain/models"
+	"github.com/paavill/awesome-tagger-bot/domain/state_machine"
 	"github.com/paavill/awesome-tagger-bot/scheduler"
 )
 
@@ -128,19 +130,38 @@ func init() {
 	}
 }
 
-func Run(chatId int64, message *tgbotapi.Message) {
+type state struct {
+	state_machine.Dumper
+}
+
+func (s *state) ProcessCallbackRequest(ctx context.Context, callback *tgbotapi.CallbackQuery) (state_machine.ProcessResponse, error) {
+	return nil, nil
+}
+
+func (s *state) ProcessMessage(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessResponse, error) {
+	_, err := Run(ctx, message)
+	return nil, err
+}
+
+func Run(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessResponse, error) {
 	if message == nil {
-		return
+		return nil, fmt.Errorf("[settings] message is nil")
 	}
 
-	if message.Text != "/settings" && message.Text != "/settings@"+bot.Bot.Self.UserName {
-		return
+	selfName := ctx.Services().Bot().Self.UserName
+	if message.Text != "/settings" && message.Text != "/settings@"+selfName {
+		return nil, nil
 	}
 
-	nmsgc := tgbotapi.NewMessage(chatId, "Настройки")
+	messageChat := message.Chat
+	if messageChat == nil {
+		return nil, fmt.Errorf("[settings] message chat is nil")
+	}
+
+	nmsgc := tgbotapi.NewMessage(messageChat.ID, "Настройки")
 	nmsgc.ReplyMarkup = markUps[root]
 
-	_, err := bot.Bot.Send(nmsgc)
+	_, err := ctx.Services().Bot().Send(nmsgc)
 	if err != nil {
 		log.Println("Error sending settings message: ", err)
 	}

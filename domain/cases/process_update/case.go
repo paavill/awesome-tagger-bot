@@ -16,21 +16,6 @@ import (
 	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 )
 
-var (
-	chats = map[int64]*models.Chat{}
-)
-
-// TODO загружать подругому
-func Init() {
-	chs, err := mongo.Chats().FindAll()
-	if err != nil {
-		log.Panic("This shouldn't happen")
-	}
-	for _, ch := range chs {
-		chats[ch.Id] = &ch
-	}
-}
-
 func Run(update tgbotapi.Update) {
 	chat := update.FromChat()
 	if chat == nil {

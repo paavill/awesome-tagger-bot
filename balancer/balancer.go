@@ -7,16 +7,19 @@ import (
 	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/paavill/awesome-tagger-bot/domain/cases/process_update"
+	cd "github.com/paavill/awesome-tagger-bot/domain/context"
+	"github.com/paavill/awesome-tagger-bot/domain/state_machine"
 )
 
 var (
-	queue map[int64]chan tgbotapi.Update = map[int64]chan tgbotapi.Update{}
-	sysCh chan os.Signal                 = make(chan os.Signal)
-	ctx   context.Context                = context.Background()
+	queue        map[int64]chan tgbotapi.Update = map[int64]chan tgbotapi.Update{}
+	sysCh        chan os.Signal                 = make(chan os.Signal)
+	ctx          context.Context                = context.Background()
+	stateMachine state_machine.StateMachine
 )
 
-func Run() {
+func Run(sm state_machine.StateMachine) {
+	stateMachine = sm
 	signal.Notify(sysCh, syscall.SIGTERM)
 	c, f := context.WithCancel(ctx)
 	ctx = c
@@ -26,7 +29,7 @@ func Run() {
 	}(f)
 }
 
-func ReceiveUpdate(update tgbotapi.Update) {
+func ReceiveUpdate(ctx cd.Context, update tgbotapi.Update) {
 	chat := update.FromChat()
 	if chat == nil {
 		chat = &update.MyChatMember.Chat
@@ -36,19 +39,19 @@ func ReceiveUpdate(update tgbotapi.Update) {
 		ch <- update
 	} else {
 		queue[id] = make(chan tgbotapi.Update, 1000)
-		go runChanProcessor(id)
+		go runChanProcessor(ctx, id)
 		queue[id] <- update
 	}
 }
 
-func runChanProcessor(id int64) {
+func runChanProcessor(domainContext cd.Context, id int64) {
 	flag := true
 	for flag {
 		select {
 		case <-ctx.Done():
 			flag = false
 		case u := <-queue[id]:
-			process_update.Run(u)
+			stateMachine.Process(domainContext, u)
 		}
 	}
 }

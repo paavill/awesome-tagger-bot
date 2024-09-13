@@ -7,27 +7,16 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/paavill/awesome-tagger-bot/domain/context"
+	"github.com/paavill/awesome-tagger-bot/domain/state_machine"
 )
 
-type processResponse interface {
-	Chattable() tgbotapi.Chattable
-	MediaGroup() *tgbotapi.MediaGroupConfig
-	States() []state
-}
-
-type state interface {
-	processCallbackRequest(context.Context, *tgbotapi.CallbackQuery) (processResponse, error)
-	processMessage(context.Context, *tgbotapi.Message) (processResponse, error)
-	dump() string
-}
-
-type stateMachine struct {
+type StateMachine struct {
 	mux           *sync.Mutex
-	initStates    []state
-	currentStates map[int64][]state
+	initStates    []state_machine.State
+	currentStates map[int64][]state_machine.State
 }
 
-func (sm *stateMachine) Process(ctx context.Context, update tgbotapi.Update) error {
+func (sm *StateMachine) Process(ctx context.Context, update tgbotapi.Update) error {
 	var chatId *int64 = nil
 
 	message := update.Message
@@ -65,7 +54,7 @@ func (sm *stateMachine) Process(ctx context.Context, update tgbotapi.Update) err
 			ctx.Logger().Critical("there are error states")
 			dump := ""
 			for _, state := range errorStates {
-				dump += state.dump() + "\n"
+				dump += state.Dump() + "\n"
 			}
 			_, err := ctx.Services().Bot().Send(tgbotapi.NewMessage(*chatId, dump))
 			if err != nil {
@@ -76,46 +65,43 @@ func (sm *stateMachine) Process(ctx context.Context, update tgbotapi.Update) err
 		return err
 	}
 
-	newStates := []state{}
+	newStates := []state_machine.State{}
 	for _, response := range responses {
-		if response.Chattable() != nil {
-			_, err := ctx.Services().Bot().Send(response.Chattable())
-			if err != nil {
-				ctx.Logger().Error(err.Error())
-			}
-		}
-		if response.MediaGroup() != nil {
-			_, err := ctx.Services().Bot().SendMediaGroup(*response.MediaGroup())
-			if err != nil {
-				ctx.Logger().Error(err.Error())
-			}
+		if response == nil {
+			continue
 		}
 		newStates = append(newStates, response.States()...)
 	}
 
-	sm.mux.Lock()
-	sm.currentStates[*chatId] = newStates
-	sm.mux.Unlock()
+	if len(newStates) != 0 {
+		sm.mux.Lock()
+		sm.currentStates[*chatId] = newStates
+		sm.mux.Unlock()
+	} else {
+		sm.mux.Lock()
+		sm.currentStates[*chatId] = sm.initStates
+		sm.mux.Unlock()
+	}
 
 	return nil
 }
 
-func processStates(ctx context.Context, update tgbotapi.Update, states []state) ([]processResponse, []state, error) {
-	resultResponses := []processResponse{}
-	errorStates := []state{}
+func processStates(ctx context.Context, update tgbotapi.Update, states []state_machine.State) ([]state_machine.ProcessResponse, []state_machine.State, error) {
+	resultResponses := []state_machine.ProcessResponse{}
+	errorStates := []state_machine.State{}
 
 	for _, currentState := range states {
-		localResponses := []processResponse{}
+		localResponses := []state_machine.ProcessResponse{}
 		localErrors := []error{}
 
-		response, err := currentState.processCallbackRequest(ctx, update.CallbackQuery)
+		response, err := currentState.ProcessCallbackRequest(ctx, update.CallbackQuery)
 		if err != nil {
 			localErrors = append(localErrors, fmt.Errorf("error while processing callback request: %s", err))
 		} else if response != nil {
 			localResponses = append(localResponses, response)
 		}
 
-		response, err = currentState.processMessage(ctx, update.Message)
+		response, err = currentState.ProcessMessage(ctx, update.Message)
 		if err != nil {
 			localErrors = append(localErrors, fmt.Errorf("error while processing message: %s", err))
 		} else if response != nil {

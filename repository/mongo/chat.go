@@ -48,13 +48,6 @@ func (c *mongoChat) toModel() models.Chat {
 	return model
 }
 
-type ChatsRepo interface {
-	GetById(id string) (models.Chat, error)
-	Insert(chat *models.Chat) error
-	Update(chat *models.Chat) error
-	FindAll() ([]models.Chat, error)
-}
-
 type chatRepo struct {
 	collection *mongo.Collection
 }
@@ -64,7 +57,7 @@ func makeChatRepo(client *mongo.Client) *mongo.Collection {
 	return collection
 }
 
-func (r *chatRepo) FindAll() ([]models.Chat, error) {
+func (r *chatRepo) FindAll() ([]*models.Chat, error) {
 	cursor, err := r.collection.Find(context.TODO(), bson.D{})
 	if err != nil {
 		return nil, err
@@ -75,24 +68,40 @@ func (r *chatRepo) FindAll() ([]models.Chat, error) {
 		return nil, err
 	}
 
-	result := make([]models.Chat, 0, len(chats))
+	result := make([]*models.Chat, 0, len(chats))
 	for _, mch := range chats {
-		result = append(result, mch.toModel())
+		model := mch.toModel()
+		result = append(result, &model)
 	}
 	return result, nil
 }
 
-func (r *chatRepo) GetById(id string) (models.Chat, error) {
+func (r *chatRepo) GetById(id string) (*models.Chat, error) {
 	res := r.collection.FindOne(context.Background(), &bson.M{"_id": id})
 	if res.Err() != nil {
-		return models.Chat{}, res.Err()
+		return nil, res.Err()
 	}
 	mch := &mongoChat{}
 	err := res.Decode(mch)
 	if err != nil {
-		return models.Chat{}, err
+		return nil, err
 	}
-	return mch.toModel(), nil
+	model := mch.toModel()
+	return &model, nil
+}
+
+func (r *chatRepo) GetByTgId(id int64) (*models.Chat, error) {
+	res := r.collection.FindOne(context.Background(), &bson.M{"_id": id})
+	if res.Err() != nil {
+		return nil, res.Err()
+	}
+	mch := &mongoChat{}
+	err := res.Decode(mch)
+	if err != nil {
+		return nil, err
+	}
+	model := mch.toModel()
+	return &model, nil
 }
 
 func (r *chatRepo) Insert(model *models.Chat) error {

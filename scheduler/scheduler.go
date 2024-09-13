@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/paavill/awesome-tagger-bot/domain/cases/send_news"
+	dc "github.com/paavill/awesome-tagger-bot/domain/context"
 	"github.com/paavill/awesome-tagger-bot/domain/models"
-	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 )
 
 var (
@@ -22,14 +22,14 @@ var (
 	}{}
 )
 
-func Run() {
-	settings, err := mongo.NewsSettings().FindAll()
+func Run(ctx dc.Context) {
+	settings, err := ctx.Connection().NewsSettings().FindAll()
 	if err != nil {
 		log.Println("Error while Init scheduler: ", err)
 	}
 
 	for _, setting := range settings {
-		Process(&setting)
+		Process(ctx, setting)
 	}
 
 	sysCh := make(chan os.Signal)
@@ -40,14 +40,14 @@ func Run() {
 	}()
 }
 
-func Process(setting *models.NewsSettings) {
+func Process(ctx dc.Context, setting *models.NewsSettings) {
 	add(setting)
 
 	var err error
 	if setting.MongoId == "" {
-		err = mongo.NewsSettings().Insert(setting)
+		err = ctx.Connection().NewsSettings().Insert(setting)
 	} else {
-		err = mongo.NewsSettings().Update(setting)
+		err = ctx.Connection().NewsSettings().Update(setting)
 	}
 	if err != nil {
 		log.Println("Error inserting/updating setting to DB: ", err)
