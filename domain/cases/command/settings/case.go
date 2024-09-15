@@ -8,8 +8,9 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/paavill/awesome-tagger-bot/bot"
+	"github.com/paavill/awesome-tagger-bot/domain/context"
 	"github.com/paavill/awesome-tagger-bot/domain/models"
+	"github.com/paavill/awesome-tagger-bot/domain/state_machine"
 	"github.com/paavill/awesome-tagger-bot/scheduler"
 )
 
@@ -134,27 +135,68 @@ func init() {
 	}
 }
 
-func Run(chatId int64, message *tgbotapi.Message) {
-	if message == nil {
-		return
-	}
-
-	if message.Text != "/settings" && message.Text != "/settings@"+bot.Bot.Self.UserName {
-		return
-	}
-
-	nmsgc := tgbotapi.NewMessage(chatId, "Настройки")
-	nmsgc.ReplyMarkup = markUps[root]
-
-	_, err := bot.Bot.Send(nmsgc)
-	if err != nil {
-		log.Println("Error sending settings message: ", err)
-	}
+func New() state_machine.State {
+	return &state{}
 }
 
-func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
+type state struct {
+	state_machine.Dumper
+}
+
+func (s *state) ProcessCallbackRequest(ctx context.Context, callback *tgbotapi.CallbackQuery) (state_machine.ProcessResponse, error) {
+	if callback == nil {
+		return nil, nil
+	}
+
+	ctx.Logger().Info("[settings] start callback")
+	defer ctx.Logger().Info("[settings] callback end")
+	message := callback.Message
+	if message == nil {
+		return nil, fmt.Errorf("[settings] message is nil")
+	}
+	messageChat := message.Chat
+	if messageChat == nil {
+		return nil, fmt.Errorf("[settings] message chat is nil")
+	}
+	processCallBack(ctx, messageChat.ID, callback)
+	return nil, nil
+}
+
+func (s *state) ProcessMessage(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessResponse, error) {
+	return Run(ctx, message)
+}
+
+func Run(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessResponse, error) {
+	if message == nil {
+		return nil, fmt.Errorf("[settings] message is nil")
+	}
+
+	selfName := ctx.Services().Bot().Self.UserName
+	if message.Text != "/settings" && message.Text != "/settings@"+selfName {
+		return nil, nil
+	}
+	ctx.Logger().Info("[settings] start")
+	defer ctx.Logger().Info("[settings] end")
+
+	messageChat := message.Chat
+	if messageChat == nil {
+		return nil, fmt.Errorf("[settings] message chat is nil")
+	}
+
+	nmsgc := tgbotapi.NewMessage(messageChat.ID, "Настройки")
+	nmsgc.ReplyMarkup = markUps[root]
+
+	_, err := ctx.Services().Bot().Send(nmsgc)
+	if err != nil {
+		return nil, fmt.Errorf("error sending settings message: %s", err)
+	}
+
+	return nil, nil
+}
+
+func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 	if callbackQuery == nil {
-		log.Println("Error while processing callback: callbackQuery is nil")
+		ctx.Logger().Error("Error while processing callback: callbackQuery is nil")
 		return
 	}
 
@@ -162,7 +204,7 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 
 	message := callbackQuery.Message
 	if message == nil {
-		log.Println("Error while processing callback: message is nil")
+		ctx.Logger().Error("Error while processing callback: message is nil")
 		return
 	}
 
@@ -172,10 +214,10 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 	switch data {
 	case selectHour:
 		markup := markUps[hours]
-		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 	case selectMinute:
 		markup := markUps[minutes]
-		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 	case save:
 		markup := message.ReplyMarkup
 		m, _ := strconv.Atoi(markup.InlineKeyboard[0][1].Text)
@@ -193,40 +235,40 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 				Minute:   m,
 				Schedule: schedule,
 			}
-			scheduler.Process(s)
+			scheduler.Process(ctx, s)
 		} else {
 			oldS.Hour = h
 			oldS.Minute = m
 			oldS.Schedule = schedule
 
-			scheduler.Process(oldS)
+			scheduler.Process(ctx, oldS)
 		}
 		qr := tgbotapi.NewCallback(callbackQuery.ID, "Сохранил!)")
-		bot.Bot.Send(qr)
+		ctx.Services().Bot().Send(qr)
 
 		v := markUps[root]
-		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+		ctx.Services().Bot().Send(tgbotapi.EditMessageTextConfig{
 			BaseEdit: tgbotapi.BaseEdit{
 				ChatID:    chatId,
 				MessageID: messageId,
 			},
 			Text: "Настройки",
 		})
-		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, &v, callbackQuery.ID)
 
 		mux.Lock()
 		defer mux.Unlock()
 		delete(usersCurrentSetting, userId)
 	case back:
 		v := markUps[root]
-		bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+		ctx.Services().Bot().Send(tgbotapi.EditMessageTextConfig{
 			BaseEdit: tgbotapi.BaseEdit{
 				ChatID:    chatId,
 				MessageID: messageId,
 			},
 			Text: "Настройки",
 		})
-		sendMarkupUpdate(chatId, messageId, &v, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, &v, callbackQuery.ID)
 
 		mux.Lock()
 		defer mux.Unlock()
@@ -241,18 +283,18 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			markup.InlineKeyboard[1][0].Text = "on"
 		}
 
-		sendMarkupUpdate(chatId, messageId, markup, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, markup, callbackQuery.ID)
 	case root:
 		markup := markUps[root]
-		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 	case settingsToday:
-		sendDetailInfo(chatId, messageId)
+		sendDetailInfo(ctx, chatId, messageId)
 
 		markup := markUps[settingsToday]
 
 		oldS, err := scheduler.GetNewsSettingById(chatId)
 		if err != nil {
-			sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+			sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 			return
 		}
 
@@ -272,7 +314,7 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
 		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
 		markup.InlineKeyboard[1][0].Text = newScheduleValue
-		sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+		sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 
 		markup.InlineKeyboard[0][1].Text = oldMinute
 		markup.InlineKeyboard[0][0].Text = oldHour
@@ -301,8 +343,8 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 				markup.InlineKeyboard[0][0].Text = setting.hour
 				markup.InlineKeyboard[0][1].Text = setting.minute
 
-				sendDetailInfo(chatId, messageId)
-				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+				sendDetailInfo(ctx, chatId, messageId)
+				sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 
 				markup.InlineKeyboard[0][0].Text = oldHour
 				markup.InlineKeyboard[0][1].Text = oldMinute
@@ -333,8 +375,8 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 				markup.InlineKeyboard[0][0].Text = setting.hour
 				markup.InlineKeyboard[0][1].Text = setting.minute
 
-				sendDetailInfo(chatId, messageId)
-				sendMarkupUpdate(chatId, messageId, &markup, callbackQuery.ID)
+				sendDetailInfo(ctx, chatId, messageId)
+				sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 
 				markup.InlineKeyboard[0][0].Text = oldHour
 				markup.InlineKeyboard[0][1].Text = oldMinute
@@ -342,14 +384,14 @@ func ProcessCallBack(chatId int64, callbackQuery *tgbotapi.CallbackQuery) {
 			}
 		}
 
-		log.Println("Unsupported callback data: ", data)
+		ctx.Logger().Error("[settings] unsupported callback data: ", data)
 		qr := tgbotapi.NewCallback(callbackQuery.ID, "O.O")
-		bot.Bot.Send(qr)
+		ctx.Services().Bot().Send(qr)
 	}
 }
 
-func sendMarkupUpdate(chatId int64, messageId int, markup *tgbotapi.InlineKeyboardMarkup, qid string) {
-	_, err := bot.Bot.Send(tgbotapi.EditMessageReplyMarkupConfig{
+func sendMarkupUpdate(ctx context.Context, chatId int64, messageId int, markup *tgbotapi.InlineKeyboardMarkup, qid string) {
+	_, err := ctx.Services().Bot().Send(tgbotapi.EditMessageReplyMarkupConfig{
 		BaseEdit: tgbotapi.BaseEdit{
 			ChatID:      chatId,
 			MessageID:   messageId,
@@ -359,11 +401,11 @@ func sendMarkupUpdate(chatId int64, messageId int, markup *tgbotapi.InlineKeyboa
 	if err != nil {
 		log.Println("Error sending settings message: ", err)
 		alert := tgbotapi.NewCallbackWithAlert(qid, "Меня вот так ругает TG (не надо так быстро): "+err.Error()+" (это в секундах)")
-		bot.Bot.Send(alert)
+		ctx.Services().Bot().Send(alert)
 	}
 }
 
-func sendDetailInfo(chatId int64, messageId int) {
+func sendDetailInfo(ctx context.Context, chatId int64, messageId int) {
 	nowTime := time.Now()
 	messageInfo := `
 Настройки
@@ -375,7 +417,7 @@ func sendDetailInfo(chatId int64, messageId int) {
 Спасибо)
 `
 
-	_, err := bot.Bot.Send(tgbotapi.EditMessageTextConfig{
+	_, err := ctx.Services().Bot().Send(tgbotapi.EditMessageTextConfig{
 		BaseEdit: tgbotapi.BaseEdit{
 			ChatID:    chatId,
 			MessageID: messageId,
@@ -383,6 +425,6 @@ func sendDetailInfo(chatId int64, messageId int) {
 		Text: fmt.Sprintf(messageInfo, nowTime.Format(time.DateTime)),
 	})
 	if err != nil {
-		log.Println("Error sending settings message: ", err)
+		ctx.Logger().Error("Error sending settings message: ", err)
 	}
 }

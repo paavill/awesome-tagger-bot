@@ -1,6 +1,7 @@
 package get_news
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -11,7 +12,8 @@ import (
 	"github.com/antchfx/htmlquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
-	"github.com/paavill/awesome-tagger-bot/bot"
+	"github.com/paavill/awesome-tagger-bot/domain/context"
+	"golang.org/x/net/html"
 )
 
 var (
@@ -23,8 +25,14 @@ var (
 	muxLocked               = false
 )
 
-func Run(chatId int64) (string, []string, error) {
-	var body string
+func ClearCache() {
+	cachedTitle = ""
+	cachedNews = []string{}
+	cachedDay = -1
+}
+
+func Run(ctx context.Context, chatId int64) (string, []string, error) {
+	var body string = ""
 	defer func() {
 		if r := recover(); r != nil {
 			fileUuid := uuid.New().String()
@@ -46,52 +54,86 @@ func Run(chatId int64) (string, []string, error) {
 
 	t, n, ok := getCached()
 	if ok {
-		log.Println("Get cached news")
+		ctx.Logger().Info("Get cached news")
 		return t, n, nil
 	}
 
-	log.Println("Get news from " + site)
-	bot.Bot.Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 30 секунд)..."))
+	ctx.Logger().Info("Get news from " + site)
+	ctx.Services().Bot().Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 30 секунд)..."))
 
 	body = getHtml()
 	bodyReader := strings.NewReader(body)
 
 	node, err := htmlquery.Parse(bodyReader)
 	if err != nil {
-		log.Println("Error while parse html " + site + " " + err.Error())
+		ctx.Logger().Error("Error while parse html " + site + " " + err.Error())
 	}
 
 	title, err := htmlquery.Query(node, "//html//body//div[1]//h2")
 	if err != nil {
-		log.Println("Error while get title " + site + " " + err.Error())
+		ctx.Logger().Error("Error while get title " + site + " " + err.Error())
 	}
 	titleText := htmlquery.InnerText(title)
 
 	news := []string{}
 	rn, err := htmlquery.Query(node, "/html/body/div[1]/div[1]/div")
 	if err != nil {
-		log.Println("Error while get news " + site + " " + err.Error())
+		ctx.Logger().Error("Error while get news " + site + " " + err.Error())
 	}
 
-	if rn == nil {
-		panic("sibling is nil")
+	newsNodes := findNodesWithAttrValue(rn, "itemprop", "suggestedAnswer")
+	newsNodes = append(newsNodes, findNodesWithAttrValue(rn, "itemprop", "acceptedAnswer")...)
+
+	mainNodes := []*html.Node{}
+	for _, node := range newsNodes {
+		mainNodes = append(mainNodes, findNodesWithAttrValue(node, "class", "main")...)
 	}
-	sibbling := rn.FirstChild
-	for sibbling.NextSibling != nil {
-		attrs := map[string]string{}
-		for _, v := range sibbling.Attr {
-			attrs[v.Key] = v.Val
+
+	for _, node := range mainNodes {
+		textNodes := findNodesWithAttrValue(node, "itemprop", "text")
+		superTextNodes := findNodesWithAttrValue(node, "class", "super")
+		hrefTextNodes := findNodesWithAttrValue(node, "class", "prazdnik_info")
+		newText := ""
+		if len(textNodes) > 0 {
+			newText += "• " + htmlquery.InnerText(textNodes[0])
+		} else if len(hrefTextNodes) > 0 {
+			hrefNode := hrefTextNodes[0]
+			href := htmlquery.SelectAttr(hrefNode, "href")
+			href = "https://kakoysegodnyaprazdnik.ru" + href
+			if href != "" {
+				newText += "• " + fmt.Sprintf("<a href=\"%s\"><i><b>%s</b></i></a>", href, htmlquery.InnerText(hrefNode))
+			} else {
+				newText += "• " + htmlquery.InnerText(hrefNode)
+			}
 		}
-		if v, ok := attrs["itemprop"]; ok && (v == "suggestedAnswer" || v == "acceptedAnswer") {
-			text := htmlquery.InnerText(sibbling)
-			news = append(news, text)
+		if len(superTextNodes) > 0 {
+			newText += " " + htmlquery.InnerText(superTextNodes[0])
 		}
-		sibbling = sibbling.NextSibling
+		if newText != "" {
+			news = append(news, newText)
+		}
 	}
 
 	setCached(titleText, news)
 
 	return titleText, news, err
+}
+
+func findNodesWithAttrValue(node *html.Node, attrName, attrValue string) []*html.Node {
+	sibling := node.FirstChild
+	result := []*html.Node{}
+	for sibling != nil {
+		attrs := map[string]string{}
+		for _, v := range sibling.Attr {
+			attrs[v.Key] = v.Val
+		}
+
+		if v, ok := attrs[attrName]; ok && v == attrValue {
+			result = append(result, sibling)
+		}
+		sibling = sibling.NextSibling
+	}
+	return result
 }
 
 func getCached() (string, []string, bool) {

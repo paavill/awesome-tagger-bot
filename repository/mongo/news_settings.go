@@ -44,7 +44,7 @@ func (s *mongoNewsSettings) toModel() models.NewsSettings {
 type NewsSettingsRepo interface {
 	Insert(*models.NewsSettings) error
 	Update(*models.NewsSettings) error
-	FindAll() ([]models.NewsSettings, error)
+	FindAll() ([]*models.NewsSettings, error)
 }
 
 type newsSettingsRepo struct {
@@ -56,7 +56,7 @@ func makeNewsSettings(client *mongo.Client) *mongo.Collection {
 	return collection
 }
 
-func (r *newsSettingsRepo) FindAll() ([]models.NewsSettings, error) {
+func (r *newsSettingsRepo) FindAll() ([]*models.NewsSettings, error) {
 	cursor, err := r.collection.Find(context.TODO(), bson.D{})
 	if err != nil {
 		return nil, err
@@ -67,9 +67,10 @@ func (r *newsSettingsRepo) FindAll() ([]models.NewsSettings, error) {
 		return nil, err
 	}
 
-	result := make([]models.NewsSettings, 0, len(settings))
+	result := make([]*models.NewsSettings, 0, len(settings))
 	for _, setting := range settings {
-		result = append(result, setting.toModel())
+		model := setting.toModel()
+		result = append(result, &model)
 	}
 	return result, nil
 }
