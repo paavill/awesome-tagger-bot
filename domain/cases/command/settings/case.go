@@ -314,6 +314,10 @@ func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.
 		markup.InlineKeyboard[0][1].Text = fmt.Sprint(oldS.Minute)
 		markup.InlineKeyboard[0][0].Text = fmt.Sprint(oldS.Hour)
 		markup.InlineKeyboard[1][0].Text = newScheduleValue
+		usersCurrentSetting[userId] = &chatHourMinute{
+			hour:   markup.InlineKeyboard[0][0].Text,
+			minute: markup.InlineKeyboard[0][1].Text,
+		}
 		sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
 
 		markup.InlineKeyboard[0][1].Text = oldMinute
