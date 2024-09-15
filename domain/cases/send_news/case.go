@@ -28,7 +28,7 @@ func Run(ctx context.Context, chatId int64) {
 		}
 
 		if len(imgs) > 0 {
-			err = send_images.Run(ctx, chatId, "Изображения праздников\n создано Kandinsky-им", []*image.Image{img})
+			err = send_images.Run(ctx, chatId, "Изображения праздников\n создано Kandinsky-им", imgs)
 			if err != nil {
 				ctx.Logger().Error("[send_news] error while sending image: %s", err)
 			}
