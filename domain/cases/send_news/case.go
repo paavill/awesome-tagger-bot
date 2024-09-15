@@ -16,19 +16,12 @@ func Run(ctx context.Context, chatId int64) {
 		ctx.Logger().Error("[send_news] error while getting news: %s", err)
 		return
 	}
-	if len(news) >= 5 {
-		imgs := make([]*image.Image, 0, 5)
-		for _, new := range news {
-			img, err := ctx.Services().Kandinsky().GenerateImage(new)
-			if err != nil {
-				ctx.Logger().Error("[send_news] error while generating image: %s", err)
-				continue
-			}
-			imgs = append(imgs, img)
-		}
-
-		if len(imgs) > 0 {
-			err = send_images.Run(ctx, chatId, "Изображения праздников\n создано Kandinsky-им", imgs)
+	if len(news) >= 1 {
+		img, err := ctx.Services().Kandinsky().GenerateImage(news[0])
+		if err != nil {
+			ctx.Logger().Error("[send_news] error while generating image: %s", err)
+		} else {
+			err = send_images.Run(ctx, chatId, "Изображение первого праздника\n создано Kandinsky-им", []*image.Image{img})
 			if err != nil {
 				ctx.Logger().Error("[send_news] error while sending image: %s", err)
 			}
