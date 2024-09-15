@@ -3,7 +3,6 @@ package send_news
 import (
 	"fmt"
 	"image"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/get_news"
@@ -17,14 +16,19 @@ func Run(ctx context.Context, chatId int64) {
 		ctx.Logger().Error("[send_news] error while getting news: %s", err)
 		return
 	}
-	if len(news) >= 3 {
-		req := strings.Join(news[0:4], "\n")
-		req = "Нарисуй картинку, которая будет отражать все это: \n" + req + "\n ни за что ни при каких обстоятельствах НЕЛЬЗЯ рисовать людей"
-		img, err := ctx.Services().Kandinsky().GenerateImage(req)
-		if err != nil {
-			ctx.Logger().Error("[send_news] error while generating image: %s", err)
-		} else {
-			err = send_images.Run(ctx, chatId, "", []*image.Image{img})
+	if len(news) >= 5 {
+		imgs := make([]*image.Image, 0, 5)
+		for _, new := range news {
+			img, err := ctx.Services().Kandinsky().GenerateImage(new)
+			if err != nil {
+				ctx.Logger().Error("[send_news] error while generating image: %s", err)
+				continue
+			}
+			imgs = append(imgs, img)
+		}
+
+		if len(imgs) > 0 {
+			err = send_images.Run(ctx, chatId, "Изображения праздников\n создано Kandinsky-им", []*image.Image{img})
 			if err != nil {
 				ctx.Logger().Error("[send_news] error while sending image: %s", err)
 			}

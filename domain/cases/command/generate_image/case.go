@@ -88,7 +88,7 @@ func runGeneration(ctx context.Context, message *tgbotapi.Message) (state_machin
 		return nil, fmt.Errorf("[generate_image] message chat is nil")
 	}
 
-	err = send_images.Run(ctx, messageChat.ID, "", []*image.Image{img})
+	err = send_images.Run(ctx, messageChat.ID, "Создано Kandinsky-им", []*image.Image{img})
 	if err != nil {
 		return nil, fmt.Errorf("[generate_image] failed to send image: %s", err)
 	}
