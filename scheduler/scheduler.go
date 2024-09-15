@@ -32,16 +32,16 @@ func Run(ctx dc.Context) {
 		Process(ctx, setting)
 	}
 
-	sysCh := make(chan os.Signal)
+	sysCh := make(chan os.Signal, 1)
 	signal.Notify(sysCh, syscall.SIGTERM)
 	go func() {
 		<-sysCh
-		stop()
+		stop(ctx)
 	}()
 }
 
 func Process(ctx dc.Context, setting *models.NewsSettings) {
-	add(setting)
+	add(ctx, setting)
 
 	var err error
 	if setting.MongoId == "" {
@@ -50,7 +50,7 @@ func Process(ctx dc.Context, setting *models.NewsSettings) {
 		err = ctx.Connection().NewsSettings().Update(setting)
 	}
 	if err != nil {
-		log.Println("Error inserting/updating setting to DB: ", err)
+		ctx.Logger().Error("error inserting/updating setting to DB: ", err)
 	}
 }
 
@@ -62,13 +62,14 @@ func GetNewsSettingById(chatId int64) (*models.NewsSettings, error) {
 	return setting.setting, nil
 }
 
-func stop() {
+func stop(ctx dc.Context) {
+	ctx.Logger().Info("stopping scheduler")
 	for _, v := range newsQueue {
 		v.cancel()
 	}
 }
 
-func add(setting *models.NewsSettings) {
+func add(dc dc.Context, setting *models.NewsSettings) {
 
 	v, ok := newsQueue[setting.ChatId]
 	if ok {
@@ -85,22 +86,15 @@ func add(setting *models.NewsSettings) {
 	}
 
 	if setting.Schedule {
-		go run(ctx, setting)
+		go run(ctx, dc, setting)
 	}
 
 }
 
-func remove(setting *models.NewsSettings) {
-	v, ok := newsQueue[setting.ChatId]
-	if ok {
-		v.cancel()
-	}
-}
-
-func run(ctx context.Context, setting *models.NewsSettings) {
+func run(ctx context.Context, dc dc.Context, setting *models.NewsSettings) {
 	now := time.Now()
 	sleepTime := calcSleepTime(setting.Hour, setting.Minute, now.Hour(), now.Minute())
-	log.Println(sleepTime.String())
+	dc.Logger().Info("send news to chat [%d] after [%s]", setting.ChatId, sleepTime.String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -108,14 +102,13 @@ func run(ctx context.Context, setting *models.NewsSettings) {
 		case <-time.After(sleepTime):
 			now := time.Now()
 			sleepTime = calcSleepTime(setting.Hour, setting.Minute, now.Hour(), now.Minute())
-			send_news.Run(setting.ChatId)
-			log.Println("Sending news at", now, "for chat", setting.ChatId)
+			send_news.Run(dc, setting.ChatId)
+			dc.Logger().Info("sending news at", now, "for chat", setting.ChatId)
 		}
 	}
 }
 
 func calcSleepTime(settingHour, settingMinute, nowHour, nowMinute int) time.Duration {
-
 	nowTime := time.Duration(nowHour)*time.Hour + time.Duration(nowMinute)*time.Minute
 	settingTime := time.Duration(settingHour)*time.Hour + time.Duration(settingMinute)*time.Minute
 

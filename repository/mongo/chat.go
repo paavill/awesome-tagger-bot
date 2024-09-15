@@ -91,7 +91,7 @@ func (r *chatRepo) GetById(id string) (*models.Chat, error) {
 }
 
 func (r *chatRepo) GetByTgId(id int64) (*models.Chat, error) {
-	res := r.collection.FindOne(context.Background(), &bson.M{"_id": id})
+	res := r.collection.FindOne(context.Background(), &bson.M{"tg_id": id})
 	if res.Err() != nil {
 		return nil, res.Err()
 	}

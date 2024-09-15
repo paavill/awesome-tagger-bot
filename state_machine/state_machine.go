@@ -10,13 +10,36 @@ import (
 	"github.com/paavill/awesome-tagger-bot/domain/state_machine"
 )
 
-type StateMachine struct {
+func New(initStates []state_machine.State, preprocessors []state_machine.Preprocessor) state_machine.StateMachine {
+	return &stateMachine{
+		mux:           &sync.Mutex{},
+		preprocessors: preprocessors,
+		initStates:    initStates,
+		currentStates: map[int64][]state_machine.State{},
+	}
+}
+
+type stateMachine struct {
 	mux           *sync.Mutex
+	preprocessors []state_machine.Preprocessor
 	initStates    []state_machine.State
 	currentStates map[int64][]state_machine.State
 }
 
-func (sm *StateMachine) Process(ctx context.Context, update tgbotapi.Update) error {
+func (sm *stateMachine) GetInitStates() []state_machine.State {
+	result := []state_machine.State{}
+	result = append(result, sm.initStates...)
+	return result
+}
+
+func (sm *stateMachine) Process(ctx context.Context, update tgbotapi.Update) error {
+	for _, p := range sm.preprocessors {
+		err := p(ctx, &update)
+		if err != nil {
+			return err
+		}
+	}
+
 	var chatId *int64 = nil
 
 	message := update.Message
@@ -60,17 +83,26 @@ func (sm *StateMachine) Process(ctx context.Context, update tgbotapi.Update) err
 			if err != nil {
 				ctx.Logger().Error(err.Error())
 			}
+			ctx.Logger().Error(dump)
 		}
+
+		sm.currentStates[*chatId] = sm.initStates
 
 		return err
 	}
 
 	newStates := []state_machine.State{}
+	addInit := false
 	for _, response := range responses {
 		if response == nil {
 			continue
 		}
+		addInit = response.NeedAddInitStates() || addInit
 		newStates = append(newStates, response.States()...)
+	}
+
+	if addInit {
+		newStates = append(newStates, sm.initStates...)
 	}
 
 	if len(newStates) != 0 {
@@ -94,27 +126,31 @@ func processStates(ctx context.Context, update tgbotapi.Update, states []state_m
 		localResponses := []state_machine.ProcessResponse{}
 		localErrors := []error{}
 
-		response, err := currentState.ProcessCallbackRequest(ctx, update.CallbackQuery)
-		if err != nil {
-			localErrors = append(localErrors, fmt.Errorf("error while processing callback request: %s", err))
-		} else if response != nil {
-			localResponses = append(localResponses, response)
+		if update.CallbackQuery != nil {
+			response, err := currentState.ProcessCallbackRequest(ctx, update.CallbackQuery)
+			if err != nil {
+				localErrors = append(localErrors, fmt.Errorf("error while processing callback request: %s", err))
+			} else if response != nil {
+				localResponses = append(localResponses, response)
+			}
 		}
 
-		response, err = currentState.ProcessMessage(ctx, update.Message)
-		if err != nil {
-			localErrors = append(localErrors, fmt.Errorf("error while processing message: %s", err))
-		} else if response != nil {
-			localResponses = append(localResponses, response)
+		if update.Message != nil {
+			response, err := currentState.ProcessMessage(ctx, update.Message)
+			if err != nil {
+				localErrors = append(localErrors, fmt.Errorf("error while processing message: %s", err))
+			} else if response != nil {
+				localResponses = append(localResponses, response)
+			}
 		}
 
 		if len(localErrors) != 0 {
 			return nil, nil, errors.Join(localErrors...)
 		}
 
-		if len(localResponses) != 1 {
+		if len(localResponses) > 1 {
 			errorStates = append(errorStates, currentState)
-		} else {
+		} else if len(localResponses) == 1 {
 			resultResponses = append(resultResponses, localResponses[0])
 		}
 	}

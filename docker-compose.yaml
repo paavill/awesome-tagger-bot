@@ -22,6 +22,9 @@ services:
       MONGODB_DB: ${MONGODB_DB}
       BOT_DEBUG: ${BOT_DEBUG}
       BOT_TOKEN: ${BOT_TOKEN}
+      KANDINSKY_HOST: ${KANDINSKY_HOST}
+      KANDINSKY_KEY: ${KANDINSKY_KEY}
+      KANDINSKY_SECRET: ${KANDINSKY_SECRET}
   tagger-prod:
     image: ${REG}:${TAG}
     restart: always

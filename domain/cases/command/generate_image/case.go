@@ -27,9 +27,6 @@ func (s *initState) ProcessMessage(ctx context.Context, message *tgbotapi.Messag
 }
 
 func Run(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessResponse, error) {
-	ctx.Logger().Info("[generate_image] start")
-	defer ctx.Logger().Info("[generate_image] finish")
-
 	if message == nil {
 		return nil, fmt.Errorf("[generate_image] message is nil")
 	}
@@ -38,6 +35,9 @@ func Run(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessR
 	if message.Text != "/generate_image" && message.Text != "/generate_image@"+selfName {
 		return nil, nil
 	}
+
+	ctx.Logger().Info("[generate_image] start")
+	defer ctx.Logger().Info("[generate_image] finish")
 
 	messageChat := message.Chat
 	if messageChat == nil {
@@ -50,7 +50,7 @@ func Run(ctx context.Context, message *tgbotapi.Message) (state_machine.ProcessR
 		return nil, fmt.Errorf("[generate_image] failed to send message: %s", err)
 	}
 
-	return state_machine.NewProcessResponse(&generateImageState{}), nil
+	return state_machine.NewProcessResponse(false, &generateImageState{}), nil
 }
 
 type generateImageState struct {
@@ -88,7 +88,7 @@ func runGeneration(ctx context.Context, message *tgbotapi.Message) (state_machin
 		return nil, fmt.Errorf("[generate_image] message chat is nil")
 	}
 
-	err = send_images.Run(messageChat.ID, []*image.Image{img})
+	err = send_images.Run(ctx, messageChat.ID, "", []*image.Image{img})
 	if err != nil {
 		return nil, fmt.Errorf("[generate_image] failed to send image: %s", err)
 	}

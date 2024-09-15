@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 )
@@ -29,22 +30,38 @@ func init() {
 	v = getEnv("BOT_DEBUG")
 	vb, err := strconv.ParseBool(v)
 	if err != nil {
-		//log.Fatal(err)
+		log.Fatal(err)
 	}
 	Env.Bot.Debug = vb
+
+	v = getEnv("KANDINSKY_HOST")
+	Env.Kandinsky.Host = v
+
+	v = getEnv("KANDINSKY_KEY")
+	Env.Kandinsky.Key = v
+
+	v = getEnv("KANDINSKY_SECRET")
+	Env.Kandinsky.Secret = v
 }
 
 func getEnv(key string) string {
 	v, ok := os.LookupEnv(key)
 	if !ok {
-		//log.Fatal(key + " is not set")
+		log.Fatal(key + " is not set")
 	}
 	return v
 }
 
 type Config struct {
-	Mongo MongoConfig
-	Bot   BotConfig
+	Mongo     MongoConfig
+	Bot       BotConfig
+	Kandinsky KandinskyConfig
+}
+
+type KandinskyConfig struct {
+	Host   string
+	Key    string
+	Secret string
 }
 
 type MongoConfig struct {

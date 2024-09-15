@@ -46,30 +46,36 @@ type knd struct {
 }
 
 func (k *knd) GenerateImage(query string) (*image.Image, error) {
-	rawImages, err := k.runGeneration(query)
-	if err != nil {
-		return nil, fmt.Errorf("error while running generation due: " + err.Error())
+	for retry := 0; retry < 5; retry++ {
+
+		rawImages, err := k.runGeneration(query)
+		if err != nil {
+			return nil, fmt.Errorf("error while running generation due: " + err.Error())
+		}
+
+		if len(rawImages) != 1 {
+			return nil, fmt.Errorf("error while getting images due: images count is not 1")
+		}
+
+		rawImage := rawImages[0]
+
+		img, err := k.decodeImage(rawImage)
+		if err != nil {
+			log.Println("[kandinsky] error while decoding image due: " + err.Error())
+			continue
+		}
+
+		return img, nil
 	}
-
-	if len(rawImages) != 1 {
-		return nil, fmt.Errorf("error while getting images due: images count is not 1")
-	}
-
-	rawImage := rawImages[0]
-
-	img, err := k.decodeImage(rawImage)
-	if err != nil {
-		return nil, fmt.Errorf("error while decoding image due: " + err.Error())
-	}
-
-	return img, nil
+	return nil, fmt.Errorf("error while decoding image due")
 }
 
 func (k *knd) decodeImage(rawImage string) (*image.Image, error) {
 	decodedImage := make([]byte, len(rawImage))
-	_, err := base64.RawStdEncoding.Decode(decodedImage, []byte(rawImage))
+	imageBytes := []byte(rawImage)
+	_, err := base64.StdEncoding.Decode(decodedImage, imageBytes)
 	if err != nil {
-		return nil, fmt.Errorf("error while decoding base64 image due: " + err.Error())
+		log.Println(fmt.Errorf("error while decoding base64 image due: " + err.Error()))
 	}
 
 	parsedImage, _, err := image.Decode(bytes.NewReader(decodedImage))
@@ -83,7 +89,10 @@ func (k *knd) decodeImage(rawImage string) (*image.Image, error) {
 func (k *knd) runGeneration(query string) ([]string, error) {
 	path := "/key/api/v1/text2image/run"
 
-	req := k.prepareRequest(path, http.MethodPost)
+	req, err := k.prepareRequest(path, http.MethodPost)
+	if err != nil {
+		return nil, fmt.Errorf("error while preparing request due: " + err.Error())
+	}
 
 	modelId, err := k.getModelId()
 	if err != nil {
@@ -140,7 +149,7 @@ func (k *knd) runGeneration(query string) ([]string, error) {
 	contentType := multipartWriter.FormDataContentType()
 	req.Header.Set("Content-Type", contentType)
 
-	response, err := http.DefaultClient.Do(&req)
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error while sending request due: " + err.Error())
 	}
@@ -157,8 +166,6 @@ func (k *knd) runGeneration(query string) ([]string, error) {
 		return nil, fmt.Errorf("error while unmarshalling response body due: " + err.Error())
 	}
 
-	log.Printf("generateResponse: %+v", generateResponse)
-
 	if generateResponse.ModelStatus == "DISABLED_BY_QUEUE" {
 		return nil, fmt.Errorf("model is disabled by queue")
 	}
@@ -174,8 +181,12 @@ func (k *knd) runGeneration(query string) ([]string, error) {
 func (k *knd) checkGeneration(uuid string) ([]string, error) {
 	path := "/key/api/v1/text2image/status/" + uuid
 	for retryCount := 0; retryCount < 120; retryCount++ {
-		req := k.prepareRequest(k.host+path, http.MethodGet)
-		resp, err := http.DefaultClient.Do(&req)
+		req, err := k.prepareRequest(path, http.MethodGet)
+		if err != nil {
+			return nil, fmt.Errorf("error while preparing request due: " + err.Error())
+		}
+
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("error while sending request due: " + err.Error())
 		}
@@ -202,9 +213,12 @@ func (k *knd) checkGeneration(uuid string) ([]string, error) {
 
 func (k *knd) getModelId() (int, error) {
 	path := "/key/api/v1/models"
-	req := k.prepareRequest(path, http.MethodGet)
+	req, err := k.prepareRequest(path, http.MethodGet)
+	if err != nil {
+		return 0, fmt.Errorf("error while preparing request due: " + err.Error())
+	}
 
-	response, err := http.DefaultClient.Do(&req)
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("error while getting model id due: " + err.Error())
 	}
@@ -230,10 +244,10 @@ func (k *knd) getModelId() (int, error) {
 	return modelValue[0].Id, nil
 }
 
-func (k *knd) prepareRequest(path, method string) http.Request {
+func (k *knd) prepareRequest(path, method string) (*http.Request, error) {
 	url, err := url.Parse(k.host + path)
 	if err != nil {
-		log.Println("error while parsing url due: " + err.Error())
+		return nil, fmt.Errorf("error while parsing url due: %s", err)
 	}
 
 	headers := http.Header{}
@@ -241,11 +255,11 @@ func (k *knd) prepareRequest(path, method string) http.Request {
 		headers.Add(k, v)
 	}
 
-	req := http.Request{
+	req := &http.Request{
 		Method: method,
 		URL:    url,
 		Header: headers,
 	}
 
-	return req
+	return req, nil
 }

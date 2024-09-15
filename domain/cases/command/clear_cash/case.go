@@ -26,8 +26,8 @@ func (s *state) ProcessMessage(ctx context.Context, message *tgbotapi.Message) (
 }
 
 func Run(ctx context.Context, message *tgbotapi.Message) error {
-	ctx.Logger().Info("[clear_cash] start")
-	defer ctx.Logger().Info("[clear_cash] end")
+	return nil
+
 	if message == nil {
 		return fmt.Errorf("[clear_cash] message is nil")
 	}
@@ -36,6 +36,8 @@ func Run(ctx context.Context, message *tgbotapi.Message) error {
 	if message.Text != "/clear_cash" && message.Text != "/clear_cash@"+selfName {
 		return nil
 	}
+	ctx.Logger().Info("[clear_cash] start")
+	defer ctx.Logger().Info("[clear_cash] end")
 
 	messageChat := message.Chat
 	if messageChat == nil {

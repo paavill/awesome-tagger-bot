@@ -51,7 +51,10 @@ func runChanProcessor(domainContext cd.Context, id int64) {
 		case <-ctx.Done():
 			flag = false
 		case u := <-queue[id]:
-			stateMachine.Process(domainContext, u)
+			err := stateMachine.Process(domainContext, u)
+			if err != nil {
+				domainContext.Logger().Error(err.Error())
+			}
 		}
 	}
 }

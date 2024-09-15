@@ -27,8 +27,6 @@ func (s *state) ProcessMessage(ctx context.Context, message *tgbotapi.Message) (
 }
 
 func Run(ctx context.Context, message *tgbotapi.Message) error {
-	ctx.Logger().Info("[news] start")
-	defer ctx.Logger().Info("[news] end")
 	if message == nil {
 		return fmt.Errorf("[news] message is nil")
 	}
@@ -38,12 +36,15 @@ func Run(ctx context.Context, message *tgbotapi.Message) error {
 		return nil
 	}
 
+	ctx.Logger().Info("[news] start")
+	defer ctx.Logger().Info("[news] end")
+
 	messageChat := message.Chat
 	if messageChat == nil {
 		return fmt.Errorf("[news] message chat is nil")
 	}
 
-	send_news.Run(messageChat.ID)
+	send_news.Run(ctx, messageChat.ID)
 
 	return nil
 }

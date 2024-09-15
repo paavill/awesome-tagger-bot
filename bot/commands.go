@@ -24,6 +24,10 @@ func initCommands(logger logger.Logger, bot *tgbotapi.BotAPI) {
 				Command:     "/generate_image",
 				Description: "Сгенерировать изображение",
 			},
+			{
+				Command:     "/clear_news_cache",
+				Description: "Очистить кеш новостей",
+			},
 			/*tgbotapi.BotCommand{
 				Command:     "/clear_cash",
 				Description: "(Пока не работает) Очистка пользователей из кеша бота",
