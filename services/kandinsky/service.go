@@ -203,7 +203,7 @@ func (k *knd) checkGeneration(uuid string) ([]string, error) {
 		if checkGenerateStatusResponse.Status == GenerateResponseStatusDone {
 			return checkGenerateStatusResponse.Images, nil
 		}
-		if checkGenerateStatusResponse.Status == GenerateResponseStatusFail {
+		if checkGenerateStatusResponse.Status == GenerateResponseStatusFail || checkGenerateStatusResponse.Censored {
 			return nil, fmt.Errorf("error while generating image due: " + checkGenerateStatusResponse.ErrorDescription)
 		}
 		time.Sleep(1 * time.Second)
