@@ -40,7 +40,7 @@ func prepareText(title string, news []string) string {
 	result := ""
 	result += title + "\n"
 
-	limitedNews := make([]string, 15)
+	limitedNews := make([]string, 7)
 	for i := 0; i < len(limitedNews) && i < len(news); i++ {
 		limitedNews[i] = news[i]
 	}
@@ -49,7 +49,7 @@ func prepareText(title string, news []string) string {
 		result += n + "\n"
 	}
 
-	result += "Информация взята с сайта https://kakoysegodnyaprazdnik.ru/"
+	result += "\nИнформация взята с сайта: https://kakoysegodnyaprazdnik.ru/"
 
 	return result
 }

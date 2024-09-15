@@ -15,17 +15,18 @@ import (
 )
 
 var (
-	mux           = &sync.Mutex{}
-	nul           = "nil"
-	root          = "root"
-	hours         = "hours"
-	minutes       = "minutes"
-	settingsToday = "settings_today"
-	selectHour    = "select_hour"
-	selectMinute  = "select_minute"
-	save          = "save"
-	onOffChange   = "on_off_change"
-	back          = "back"
+	mux                 = &sync.Mutex{}
+	usersCurrentSetting = map[string]*chatHourMinute{}
+	nul                 = "nil"
+	root                = "root"
+	hours               = "hours"
+	minutes             = "minutes"
+	settingsToday       = "settings_today"
+	selectHour          = "select_hour"
+	selectMinute        = "select_minute"
+	save                = "save"
+	onOffChange         = "on_off_change"
+	back                = "back"
 
 	hoursArray   = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"}
 	minutesArray = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"}
@@ -109,6 +110,11 @@ var (
 		},
 	}
 )
+
+type chatHourMinute struct {
+	hour   string
+	minute string
+}
 
 func init() {
 	for i, v := range hoursArray {
@@ -203,6 +209,7 @@ func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.
 	}
 
 	messageId := message.MessageID
+	userId := message.Chat.UserName
 
 	switch data {
 	case selectHour:
@@ -248,6 +255,10 @@ func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.
 			Text: "Настройки",
 		})
 		sendMarkupUpdate(ctx, chatId, messageId, &v, callbackQuery.ID)
+
+		mux.Lock()
+		defer mux.Unlock()
+		delete(usersCurrentSetting, userId)
 	case back:
 		v := markUps[root]
 		ctx.Services().Bot().Send(tgbotapi.EditMessageTextConfig{
@@ -258,6 +269,10 @@ func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.
 			Text: "Настройки",
 		})
 		sendMarkupUpdate(ctx, chatId, messageId, &v, callbackQuery.ID)
+
+		mux.Lock()
+		defer mux.Unlock()
+		delete(usersCurrentSetting, userId)
 	case onOffChange:
 		markup := message.ReplyMarkup
 		m := markup.InlineKeyboard[1][0].Text
@@ -308,9 +323,31 @@ func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.
 		for _, v := range hoursArray {
 			if "h-"+v == data {
 				markup := markUps[settingsToday]
-				markup.InlineKeyboard[0][0].Text = v
+
+				mux.Lock()
+				defer mux.Unlock()
+
+				oldHour := markup.InlineKeyboard[0][0].Text
+				oldMinute := markup.InlineKeyboard[0][1].Text
+
+				if val, ok := usersCurrentSetting[userId]; ok {
+					val.hour = v
+				} else {
+					usersCurrentSetting[userId] = &chatHourMinute{
+						hour:   v,
+						minute: oldMinute,
+					}
+				}
+
+				setting := usersCurrentSetting[userId]
+				markup.InlineKeyboard[0][0].Text = setting.hour
+				markup.InlineKeyboard[0][1].Text = setting.minute
+
 				sendDetailInfo(ctx, chatId, messageId)
 				sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
+
+				markup.InlineKeyboard[0][0].Text = oldHour
+				markup.InlineKeyboard[0][1].Text = oldMinute
 				return
 			}
 		}
@@ -318,9 +355,31 @@ func processCallBack(ctx context.Context, chatId int64, callbackQuery *tgbotapi.
 		for _, v := range minutesArray {
 			if "m-"+v == data {
 				markup := markUps[settingsToday]
-				markup.InlineKeyboard[0][1].Text = v
+
+				mux.Lock()
+				defer mux.Unlock()
+
+				oldHour := markup.InlineKeyboard[0][0].Text
+				oldMinute := markup.InlineKeyboard[0][1].Text
+
+				if val, ok := usersCurrentSetting[userId]; ok {
+					val.minute = v
+				} else {
+					usersCurrentSetting[userId] = &chatHourMinute{
+						hour:   oldHour,
+						minute: v,
+					}
+				}
+
+				setting := usersCurrentSetting[userId]
+				markup.InlineKeyboard[0][0].Text = setting.hour
+				markup.InlineKeyboard[0][1].Text = setting.minute
+
 				sendDetailInfo(ctx, chatId, messageId)
 				sendMarkupUpdate(ctx, chatId, messageId, &markup, callbackQuery.ID)
+
+				markup.InlineKeyboard[0][0].Text = oldHour
+				markup.InlineKeyboard[0][1].Text = oldMinute
 				return
 			}
 		}
