@@ -19,7 +19,7 @@ func Run(ctx context.Context, chatId int64) {
 	}
 	if len(news) >= 3 {
 		req := strings.Join(news[0:4], "\n")
-		req = "Нарисуй картинку, которая будет отражать все это, ГЛАВНОЕ НЕ РИСУЙ ЛЮДЕЙ!!!: \n" + req
+		req = "Нарисуй картинку, которая будет отражать все это: \n" + req + "\n ни за что ни при каких обстоятельствах НЕЛЬЗЯ рисовать людей"
 		img, err := ctx.Services().Kandinsky().GenerateImage(req)
 		if err != nil {
 			ctx.Logger().Error("[send_news] error while generating image: %s", err)
