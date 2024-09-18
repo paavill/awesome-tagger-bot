@@ -81,8 +81,7 @@ func Run(ctx context.Context, chatId int64) (string, []string, error) {
 		ctx.Logger().Error("Error while get news " + site + " " + err.Error())
 	}
 
-	newsNodes := findNodesWithAttrValue(rn, "itemprop", "suggestedAnswer")
-	newsNodes = append(newsNodes, findNodesWithAttrValue(rn, "itemprop", "acceptedAnswer")...)
+	newsNodes := findNodesWithAttrValue(rn, "itemprop", "suggestedAnswer", "acceptedAnswer")
 
 	mainNodes := []*html.Node{}
 	for _, node := range newsNodes {
@@ -119,7 +118,7 @@ func Run(ctx context.Context, chatId int64) (string, []string, error) {
 	return titleText, news, err
 }
 
-func findNodesWithAttrValue(node *html.Node, attrName, attrValue string) []*html.Node {
+func findNodesWithAttrValue(node *html.Node, attrName string, attrValue ...string) []*html.Node {
 	sibling := node.FirstChild
 	result := []*html.Node{}
 	for sibling != nil {
@@ -128,8 +127,17 @@ func findNodesWithAttrValue(node *html.Node, attrName, attrValue string) []*html
 			attrs[v.Key] = v.Val
 		}
 
-		if v, ok := attrs[attrName]; ok && v == attrValue {
-			result = append(result, sibling)
+		if v, ok := attrs[attrName]; ok  {
+			vOk := false
+			for _, attrV := range attrValue {
+				vOk = vOk || v == attrV
+				if vOk {
+					break
+				}
+			}
+			if vOk {
+				result = append(result, sibling)
+			}
 		}
 		sibling = sibling.NextSibling
 	}
