@@ -16,21 +16,31 @@ func Run(ctx context.Context, chatId int64) {
 		ctx.Logger().Error("[send_news] error while getting news: %s", err)
 		return
 	}
+
 	if len(news) >= 1 {
-		img, err := ctx.Services().Kandinsky().GenerateImage(news[0])
-		if err != nil {
-			ctx.Logger().Error("[send_news] error while generating image: %s", err)
-		} else {
+		img := get_news.GetImage()
+		if img == nil {
+			tmpImg, err := ctx.Services().Kandinsky().GenerateImage(news[0])
+			if err != nil {
+				ctx.Logger().Error("[send_news] error while generating image: %s", err)
+			}
+			img = tmpImg
+			get_news.SetImage(img)
+		}
+
+		if img != nil {
 			err = send_images.Run(ctx, chatId, "Изображение первого праздника\n создано Kandinsky-им", []*image.Image{img})
 			if err != nil {
 				ctx.Logger().Error("[send_news] error while sending image: %s", err)
 			}
 		}
 	}
+
 	err = sendToBot(ctx, chatId, title, news)
 	if err != nil {
 		ctx.Logger().Error("[send_news] error while sending news: %s", err)
 	}
+
 }
 
 func prepareText(title string, news []string) string {

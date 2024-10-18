@@ -2,6 +2,7 @@ package get_news
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"os"
 	"os/exec"
@@ -17,18 +18,40 @@ import (
 )
 
 var (
-	site                    = "https://kakoysegodnyaprazdnik.ru/"
-	cachedTitle             = ""
-	cachedNews              = []string{}
-	cachedDay               = -1
-	mux         *sync.Mutex = &sync.Mutex{}
-	muxLocked               = false
+	site                     = "https://kakoysegodnyaprazdnik.ru/"
+	cachedTitle              = ""
+	cachedNews               = []string{}
+	cachedDay                = -1
+	mux         *sync.Mutex  = &sync.Mutex{}
+	muxLocked                = false
+	cachedImg   *image.Image // TODO: убрать отсюда
 )
 
 func ClearCache() {
 	cachedTitle = ""
 	cachedNews = []string{}
 	cachedDay = -1
+}
+
+func SetImage(img *image.Image) {
+	n := time.Now()
+
+	if cachedDay == n.Day() && cachedImg != nil {
+		return
+	}
+
+	cachedImg = img
+}
+
+func GetImage() *image.Image {
+	n := time.Now()
+
+	if cachedDay != n.Day() {
+		cachedImg = nil
+		return cachedImg
+	}
+
+	return cachedImg
 }
 
 func Run(ctx context.Context, chatId int64) (string, []string, error) {
@@ -127,7 +150,7 @@ func findNodesWithAttrValue(node *html.Node, attrName string, attrValue ...strin
 			attrs[v.Key] = v.Val
 		}
 
-		if v, ok := attrs[attrName]; ok  {
+		if v, ok := attrs[attrName]; ok {
 			vOk := false
 			for _, attrV := range attrValue {
 				vOk = vOk || v == attrV
