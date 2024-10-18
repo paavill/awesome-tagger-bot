@@ -1,169 +1,138 @@
 package process_update
 
 import (
-	"log"
+	"fmt"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
-	bt "github.com/paavill/awesome-tagger-bot/bot"
-	"github.com/paavill/awesome-tagger-bot/domain/cases/command/clear_cash"
-	"github.com/paavill/awesome-tagger-bot/domain/cases/command/news"
-	"github.com/paavill/awesome-tagger-bot/domain/cases/command/reset"
-	"github.com/paavill/awesome-tagger-bot/domain/cases/command/settings"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/send_greetings"
+	"github.com/paavill/awesome-tagger-bot/domain/context"
 	"github.com/paavill/awesome-tagger-bot/domain/models"
-	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 )
 
-var (
-	chats = map[int64]*models.Chat{}
-)
-
-// TODO загружать подругому
-func Init() {
-	chs, err := mongo.Chats().FindAll()
-	if err != nil {
-		log.Panic("This shouldn't happen")
-	}
-	for _, ch := range chs {
-		chats[ch.Id] = &ch
-	}
-}
-
-func Run(update tgbotapi.Update) {
+func Run(ctx context.Context, update *tgbotapi.Update) error {
 	chat := update.FromChat()
 	if chat == nil {
 		chat = &update.MyChatMember.Chat
 	}
 	id := chat.ID
-	chatName := chat.Title
 	cbq := update.CallbackQuery
 
-	initChatIfNeed(id, chatName)
-
-	ch, ok := chats[id]
-	if !ok {
-		log.Panic("This shouldn't happen")
-	}
-
-	clear_cash.Run(ch, update.Message)
-	reset.Run(ch, update.Message)
-	news.Run(ch.Id, update.Message)
-	settings.Run(ch.Id, update.Message)
-	processChat(id)
-	callbackProcess(cbq, id)
-	processTagAll(update)
-
-	var err error
-	if ch.MongoId == "" {
-		err = mongo.Chats().Insert(ch)
-	} else {
-		err = mongo.Chats().Update(ch)
-	}
+	err := initChatIfNeed(ctx, update)
 	if err != nil {
-		log.Printf("Error while inserting/updating chat %d to mongo", ch.Id)
+		return fmt.Errorf("error while init chat: %s", err)
 	}
+
+	err = processShareUsername(ctx, cbq, id)
+	if err != nil {
+		return fmt.Errorf("error while processing share username: %s", err)
+	}
+
+	err = processTagAll(ctx, id, update)
+	if err != nil {
+		return fmt.Errorf("error while processing tag all: %s", err)
+	}
+
+	return nil
 }
 
-func initChatIfNeed(id int64, chatName string) {
-	if _, ok := chats[id]; !ok {
-		chats[id] = &models.Chat{
-			Id:           id,
-			ChatName:     chatName,
-			Users:        map[string]struct{}{},
-			New:          true,
-			ClearCash:    false,
-			UuidCallback: uuid.NewString(),
+func initChatIfNeed(ctx context.Context, update *tgbotapi.Update) error {
+	tgChat := update.FromChat()
+	if tgChat == nil {
+		return fmt.Errorf("chat is nil")
+	}
+	chat, err := ctx.Connection().Chat().GetByTgId(tgChat.ID)
+	if err == nil {
+		cq := update.CallbackQuery
+		if cq == nil {
+			return nil
 		}
-		log.Printf("Chat with ID %d added", id)
-	} else if chats[id].ChatName == "" {
-		chats[id].ChatName = chatName
-	}
-}
 
-func processChat(id int64) {
-	chat, ok := chats[id]
-	if !ok {
-		panic("This shouldn't happen")
-	}
-
-	if chat.ClearCash {
-		chat.Users = map[string]struct{}{}
-		chat.ClearCash = false
-	}
-
-	if chat.New {
-		initUsers(id)
-		chat.New = false
-	}
-}
-
-func initUsers(id int64) {
-	if ch, ok := chats[id]; ok {
-		msg := tgbotapi.NewMessage(ch.Id, `
-Привет 😊
-
-Пожалуйста нажми <b>Поделиться именем</b>.
-
-<i>Если ты сделаешь это,</i>
-<i>твои друзья смогут</i>
-<i>тегать тебя с помощью @all</i>
-				`)
-		//msg.ReplyToMessageID = update.Message.MessageIDs
-		msg.ParseMode = "HTML"
-		msg.ReplyMarkup = tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				[]tgbotapi.InlineKeyboardButton{
-					tgbotapi.InlineKeyboardButton{
-						Text:         "Поделиться именем",
-						CallbackData: &ch.UuidCallback,
-					},
-				},
-			},
+		usr := cq.From
+		if usr == nil {
+			return nil
 		}
-		bt.Bot.Send(msg)
+
+		if cq.Data == chat.UuidCallback {
+			chat.Users[usr.UserName] = struct{}{}
+			err = ctx.Connection().Chat().Update(chat)
+			if err != nil {
+				return fmt.Errorf("error while updating chat: %s", err)
+			}
+		}
+
+		return nil
 	}
+	chat = &models.Chat{
+		Id:           tgChat.ID,
+		ChatName:     tgChat.Title,
+		UuidCallback: uuid.New().String(),
+		Users:        map[string]struct{}{},
+	}
+	err = ctx.Connection().Chat().Insert(chat)
+	if err != nil {
+		return fmt.Errorf("error while inserting chat to mongo: %s", err)
+	}
+
+	err = send_greetings.Run(ctx, tgChat.ID)
+	if err != nil {
+		return fmt.Errorf("error while sending greetings: %s", err)
+	}
+
+	return nil
 }
 
-func callbackProcess(q *tgbotapi.CallbackQuery, chatId int64) {
+func processShareUsername(ctx context.Context, q *tgbotapi.CallbackQuery, chatId int64) error {
 	if q == nil {
-		return
+		return nil //fmt.Errorf("[process_update] callback query is nil")
 	}
 	data := q.Data
 	user := q.From
 	if user == nil {
-		return
+		return fmt.Errorf("[process_update] user is nil")
 	}
 	username := user.UserName
-	if data == chats[chatId].UuidCallback {
-		chats[chatId].Users[username] = struct{}{}
-		log.Printf("User %s shared name in chat %d", username, chatId)
-		callBackConfig := tgbotapi.NewCallback(q.ID, "Спасибо, теперь я тебя знаю☺")
-		bt.Bot.Send(callBackConfig)
+	chat, err := ctx.Connection().Chat().GetByTgId(chatId)
+	if err != nil {
+		return fmt.Errorf("error while getting chat %d from mongo: %s", chatId, err)
 	}
-	settings.ProcessCallBack(chatId, q)
+	if data == chat.UuidCallback {
+		chat.Users[username] = struct{}{}
+		ctx.Logger().Info("User %s shared name in chat %d", username, chatId)
+		callBackConfig := tgbotapi.NewCallback(q.ID, "Спасибо, теперь я тебя знаю☺")
+		ctx.Services().Bot().Send(callBackConfig)
+	}
+	return nil
 }
 
-func processTagAll(update tgbotapi.Update) {
+func processTagAll(ctx context.Context, chatId int64, update *tgbotapi.Update) error {
 	if update.Message == nil {
-		return
+		return nil //fmt.Errorf("[process_update] message is nil")
 	}
 	if strings.Contains(update.Message.Text, "@all") {
 		tags := []string{}
-		for u, _ := range chats[update.Message.Chat.ID].Users {
+		chat, err := ctx.Connection().Chat().GetByTgId(chatId)
+		if err != nil {
+			return fmt.Errorf("error while getting chat %d from mongo: %s", chatId, err)
+		}
+		for u, _ := range chat.Users {
 			if u == update.Message.From.UserName {
 				continue
 			}
 			tags = append(tags, "@"+u)
 		}
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID,
+		msg := tgbotapi.NewMessage(chatId,
 			`
 Простите, пошумлю:
 `+strings.Join(tags, "\n"))
-		allMsg, err := bt.Bot.Send(msg)
+		allMsg, err := ctx.Services().Bot().Send(msg)
 		if err != nil {
-			return
+			return fmt.Errorf("[process_update] error while sending message: %s", err)
 		}
+
+		time.Sleep(1 * time.Second)
 
 		edit := tgbotapi.EditMessageTextConfig{
 			BaseEdit: tgbotapi.BaseEdit{
@@ -172,6 +141,10 @@ func processTagAll(update tgbotapi.Update) {
 			},
 			Text: "Я пошумел, всех вызвал!\nИ прибрал за собой😅",
 		}
-		bt.Bot.Send(edit)
+		_, err = ctx.Services().Bot().Send(edit)
+		if err != nil {
+			return fmt.Errorf("[process_update] error while editing message: %s", err)
+		}
 	}
+	return nil
 }

@@ -1,19 +1,46 @@
 package send_news
 
 import (
-	"log"
+	"fmt"
+	"image"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/paavill/awesome-tagger-bot/bot"
 	"github.com/paavill/awesome-tagger-bot/domain/cases/get_news"
+	"github.com/paavill/awesome-tagger-bot/domain/cases/send_images"
+	"github.com/paavill/awesome-tagger-bot/domain/context"
 )
 
-func Run(chatId int64) {
-	title, news, err := get_news.Run(chatId)
+func Run(ctx context.Context, chatId int64) {
+	title, news, err := get_news.Run(ctx, chatId)
 	if err != nil {
+		ctx.Logger().Error("[send_news] error while getting news: %s", err)
 		return
 	}
-	sendToBot(chatId, title, news)
+
+	if len(news) >= 1 {
+		img := get_news.GetImage()
+		if img == nil {
+			tmpImg, err := ctx.Services().Kandinsky().GenerateImage(news[0])
+			if err != nil {
+				ctx.Logger().Error("[send_news] error while generating image: %s", err)
+			}
+			img = tmpImg
+			get_news.SetImage(img)
+		}
+
+		if img != nil {
+			err = send_images.Run(ctx, chatId, "Изображение первого праздника\n создано Kandinsky-им", []*image.Image{img})
+			if err != nil {
+				ctx.Logger().Error("[send_news] error while sending image: %s", err)
+			}
+		}
+	}
+
+	err = sendToBot(ctx, chatId, title, news)
+	if err != nil {
+		ctx.Logger().Error("[send_news] error while sending news: %s", err)
+	}
+
 }
 
 func prepareText(title string, news []string) string {
@@ -34,11 +61,13 @@ func prepareText(title string, news []string) string {
 	return result
 }
 
-func sendToBot(chatId int64, title string, news []string) {
+func sendToBot(ctx context.Context, chatId int64, title string, news []string) error {
 	text := prepareText(title, news)
 	msg := tgbotapi.NewMessage(chatId, text)
-	_, err := bot.Bot.Send(msg)
+	msg.ParseMode = tgbotapi.ModeHTML
+	_, err := ctx.Services().Bot().Send(msg)
 	if err != nil {
-		log.Panicln("Error while sending news " + err.Error())
+		return fmt.Errorf("error while sending news: %s", err)
 	}
+	return nil
 }
