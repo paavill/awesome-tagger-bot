@@ -31,6 +31,7 @@ func ClearCache() {
 	cachedTitle = ""
 	cachedNews = []string{}
 	cachedDay = -1
+	cachedImg = nil
 }
 
 func SetImage(img *image.Image) {
