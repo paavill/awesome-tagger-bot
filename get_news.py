@@ -17,7 +17,7 @@ url = args.url
 proxy = args.proxy
 news = args.news
 
-service = Service('./geckodriver.exe')
+service = Service('./geckodriver')
 
 options = webdriver.FirefoxOptions()
 
