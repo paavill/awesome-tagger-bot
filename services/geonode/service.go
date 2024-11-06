@@ -49,19 +49,24 @@ func (g *geonode) GetProxyList() ([]*models.Proxy, error) {
 		return nil, err
 	}
 
-	body := []Proxy{}
+	body := struct{
+		Data []Proxy `json:"data"`
+	}{
+		Data: []Proxy{},
+	}
+
 	err = json.Unmarshal(bodyRaw, &body)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*models.Proxy, len(body))
-	for i := 0; i < len(body); i++ {
+	result := make([]*models.Proxy, len(body.Data))
+	for i := 0; i < len(body.Data); i++ {
 		result[i] = &models.Proxy{
-			Ip:           body[i].Ip,
-			Port:         body[i].Port,
-			Uptime:       body[i].Uptime,
-			ResponseTime: body[i].ResponseTime,
+			Ip:           body.Data[i].Ip,
+			Port:         body.Data[i].Port,
+			Uptime:       body.Data[i].Uptime,
+			ResponseTime: body.Data[i].ResponseTime,
 		}
 	}
 
