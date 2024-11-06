@@ -57,12 +57,19 @@ func (sm *stateMachine) Process(ctx context.Context, update tgbotapi.Update) err
 		chatId = &callback.Message.Chat.ID
 	}
 
+	if chatId == nil {
+		ctx.Logger().Error("chatId is nil")
+		return nil
+	}
+
 	sm.mux.Lock()
+
 	states, ok := sm.currentStates[*chatId]
 	if !ok {
 		states = sm.initStates
 		sm.currentStates[*chatId] = states
 	}
+	
 	sm.mux.Unlock()
 
 	responses, errorStates, err := processStates(ctx, update, states)
