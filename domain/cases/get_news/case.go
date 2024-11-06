@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"os"
+	"math/rand"
 	"os/exec"
 	"strings"
 	"sync"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/antchfx/htmlquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/google/uuid"
 	"github.com/paavill/awesome-tagger-bot/domain/context"
 	"golang.org/x/net/html"
 )
@@ -47,21 +46,37 @@ func SetImage(img *image.Image) {
 func GetImage() *image.Image {
 	n := time.Now()
 
-	if cachedDay != n.Day() {
-		cachedImg = nil
+	if cachedDay == n.Day() {
 		return cachedImg
 	}
 
+	cachedImg = nil
 	return cachedImg
 }
 
-func Run(ctx context.Context, chatId int64) (string, []string, error) {
+func getCached() (string, []string, bool) {
+	n := time.Now()
+
+	if cachedDay == n.Day() {
+		return cachedTitle, cachedNews, true
+	}
+
+	return "", nil, false
+}
+
+func setCached(title string, news []string) {
+	cachedTitle = title
+	cachedNews = news
+
+	n := time.Now()
+	cachedDay = n.Day()
+}
+
+func Run(ctx context.Context, chatId int64, autoSend bool) (string, []string, error) {
 	var body string = ""
 	defer func() {
 		if r := recover(); r != nil {
-			fileUuid := uuid.New().String()
-			os.WriteFile("./"+fileUuid+".html", []byte(body), 0777)
-			log.Println("Recovered in f", r)
+			ctx.Logger().Critical("panic in get_news.Run: %s", r)
 		}
 	}()
 
@@ -83,9 +98,26 @@ func Run(ctx context.Context, chatId int64) (string, []string, error) {
 	}
 
 	ctx.Logger().Info("Get news from " + site)
-	ctx.Services().Bot().Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 30 секунд)..."))
+	if !autoSend {
+		ctx.Services().Bot().Send(tgbotapi.NewMessage(chatId, "Загружаю новости (примерно 30 секунд)..."))
+	}
 
-	body = getHtml()
+	proxyList, err := ctx.Services().GetProxy().GetProxyListCached()
+	if err != nil {
+		ctx.Logger().Error("error while get proxy list due: %s", err)
+	}
+
+	proxy := ""
+	if len(proxyList) == 0 {
+		ctx.Logger().Error("no proxies")
+	} else {
+		proxyObj := proxyList[rand.Int31n(int32(len(proxyList)))]
+		proxy = fmt.Sprintf("%s:%s", proxyObj.Ip, proxyObj.Port)
+		ctx.Logger().Info("using proxy: %s", proxy)
+		ctx.Logger().Info("proxy response time: %d, uptime: %d", proxyObj.ResponseTime, proxyObj.Uptime)
+	}
+
+	body = getHtml(site, proxy)
 	bodyReader := strings.NewReader(body)
 
 	node, err := htmlquery.Parse(bodyReader)
@@ -168,26 +200,8 @@ func findNodesWithAttrValue(node *html.Node, attrName string, attrValue ...strin
 	return result
 }
 
-func getCached() (string, []string, bool) {
-	n := time.Now()
-
-	if cachedDay == n.Day() {
-		return cachedTitle, cachedNews, true
-	}
-
-	return "", nil, false
-}
-
-func setCached(title string, news []string) {
-	cachedTitle = title
-	cachedNews = news
-
-	n := time.Now()
-	cachedDay = n.Day()
-}
-
-func getHtml() string {
-	cmd := exec.Command("python3", "get_news.py")
+func getHtml(url, proxy string) string {
+	cmd := exec.Command("python3", "get_news.py", "--url", url, "--proxy", proxy)
 
 	output, err := cmd.Output()
 	if err != nil {

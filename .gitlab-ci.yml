@@ -43,9 +43,11 @@ stages:
     - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_DB=$MONGODB_DB' >> .env"
     - ssh $SSH_USER@$SSH_IP "echo 'BOT_DEBUG=$BOT_DEBUG' >> .env"
     - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN=$BOT_TOKEN' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN_TEST=$BOT_TOKEN_TEST' >> .env"
     - ssh $SSH_USER@$SSH_IP "echo 'KANDINSKY_HOST=$KANDINSKY_HOST' >> .env"
     - ssh $SSH_USER@$SSH_IP "echo 'KANDINSKY_KEY=$FUSION_BRAIN_API_KEY' >> .env"
     - ssh $SSH_USER@$SSH_IP "echo 'KANDINSKY_SECRET=$FUSION_BRAIN_SECRET_KEY' >> .env"
+    - ssh $SSH_USER@$SSH_IP "echo 'GEONODE_HOST=$GEONODE_HOST' >> .env"
   script:
     - ssh $SSH_USER@$SSH_IP "docker login -u $DOCKER_USER -p $DOCKER_PASSWORD"
     - scp $COMPOSE_FILE $SSH_USER@$SSH_IP:~/$COMPOSE_FILE
@@ -68,6 +70,7 @@ deploy_prod:
     COMPOSE_FILE: ./docker-compose.yaml
     MONGODB_DB: tagger_prod
     BOT_TOKEN: $BOT_TOKEN_PROD
+    BOT_TOKEN_TEST: $BOT_TOKEN_TEST
     TAG: $TAG_PROD
 
 build_test:
@@ -86,7 +89,8 @@ deploy_test:
     COMPOSE_COMMAND: tagger-test mongo-prod
     COMPOSE_FILE: ./docker-compose.yaml
     MONGODB_DB: tagger_test
-    BOT_TOKEN: $BOT_TOKEN_TEST
+    BOT_TOKEN: $BOT_TOKEN_PROD
+    BOT_TOKEN_TEST: $BOT_TOKEN_TEST
     TAG: $TAG_TEST
   
   

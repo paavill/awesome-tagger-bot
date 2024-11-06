@@ -44,7 +44,7 @@ func Run(ctx context.Context, message *tgbotapi.Message) error {
 		return fmt.Errorf("[news] message chat is nil")
 	}
 
-	send_news.Run(ctx, messageChat.ID)
+	send_news.Run(ctx, messageChat.ID, false)
 
 	return nil
 }

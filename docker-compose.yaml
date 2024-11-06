@@ -21,10 +21,11 @@ services:
       MONGODB_PASS: ${MONGODB_PASS}
       MONGODB_DB: ${MONGODB_DB}
       BOT_DEBUG: ${BOT_DEBUG}
-      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_TOKEN: ${BOT_TOKEN_TEST}
       KANDINSKY_HOST: ${KANDINSKY_HOST}
       KANDINSKY_KEY: ${KANDINSKY_KEY}
       KANDINSKY_SECRET: ${KANDINSKY_SECRET}
+      GEONODE_HOST: ${GEONODE_HOST}
   tagger-prod:
     image: ${REG}:${TAG}
     restart: always
@@ -39,6 +40,7 @@ services:
       KANDINSKY_HOST: ${KANDINSKY_HOST}
       KANDINSKY_KEY: ${KANDINSKY_KEY}
       KANDINSKY_SECRET: ${KANDINSKY_SECRET}
+      GEONODE_HOST: ${GEONODE_HOST}
   mongo-prod:
     image: mongo:7.0
     restart: always
