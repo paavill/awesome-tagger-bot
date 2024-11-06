@@ -49,7 +49,7 @@ func (g *geonode) GetProxyList() ([]*models.Proxy, error) {
 		return nil, err
 	}
 
-	body := []*Proxy{}
+	body := []Proxy{}
 	err = json.Unmarshal(bodyRaw, body)
 	if err != nil {
 		return nil, err
