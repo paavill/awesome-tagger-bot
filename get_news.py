@@ -28,8 +28,7 @@ options.add_argument("--disable-gpu")
 options.add_argument("--headless")
 
 if proxy != "":
-    proxyAddress = "198.199.101.152:8388"
-    ip, port = proxyAddress.split(':')
+    ip, port = proxy.split(':')
     options.set_preference('network.proxy.type', 1)
     options.set_preference('network.proxy.SOCKS', ip)
     options.set_preference('network.proxy.SOCKS_port', int(port))

@@ -102,7 +102,7 @@ func run(ctx context.Context, dc dc.Context, setting *models.NewsSettings) {
 		case <-time.After(sleepTime):
 			now := time.Now()
 			sleepTime = calcSleepTime(setting.Hour, setting.Minute, now.Hour(), now.Minute())
-			send_news.Run(dc, setting.ChatId)
+			send_news.Run(dc, setting.ChatId, true)
 			dc.Logger().Info("sending news at", now, "for chat", setting.ChatId)
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/paavill/awesome-tagger-bot/repository/mongo"
 	"github.com/paavill/awesome-tagger-bot/scheduler"
 	"github.com/paavill/awesome-tagger-bot/services"
+	"github.com/paavill/awesome-tagger-bot/services/geonode"
 	"github.com/paavill/awesome-tagger-bot/services/kandinsky"
 	"github.com/paavill/awesome-tagger-bot/state_machine"
 )
@@ -36,10 +37,12 @@ func main() {
 		panic(fmt.Sprintf("unable to init bot: %s", err))
 	}
 
+	geonode := geonode.New(config.Env.Geonode.Host)
 	kandinsky := kandinsky.NewService(config.Env.Kandinsky.Host, config.Env.Kandinsky.Key, config.Env.Kandinsky.Secret)
 	servicesBuilder := services.
 		NewBuilder().
 		Kandinsky(kandinsky).
+		GetProxy(geonode).
 		Bot(bot)
 
 	connection := mongo.New()

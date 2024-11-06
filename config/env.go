@@ -42,6 +42,9 @@ func init() {
 
 	v = getEnv("KANDINSKY_SECRET")
 	Env.Kandinsky.Secret = v
+
+	v = getEnv("GEONODE_HOST")
+	Env.Geonode.Host = v
 }
 
 func getEnv(key string) string {
@@ -56,6 +59,11 @@ type Config struct {
 	Mongo     MongoConfig
 	Bot       BotConfig
 	Kandinsky KandinskyConfig
+	Geonode   GeonodeConfig
+}
+
+type GeonodeConfig struct {
+	Host string
 }
 
 type KandinskyConfig struct {

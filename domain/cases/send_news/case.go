@@ -10,8 +10,8 @@ import (
 	"github.com/paavill/awesome-tagger-bot/domain/context"
 )
 
-func Run(ctx context.Context, chatId int64) {
-	title, news, err := get_news.Run(ctx, chatId)
+func Run(ctx context.Context, chatId int64, autoSend bool) {
+	title, news, err := get_news.Run(ctx, chatId, autoSend)
 	if err != nil {
 		ctx.Logger().Error("[send_news] error while getting news: %s", err)
 		return

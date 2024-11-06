@@ -26,8 +26,7 @@ type geonode struct {
 }
 
 func (g *geonode) GetProxyList() ([]*models.Proxy, error) {
-
-	path := "/api/proxy-list?protocols=socks5&limit=500&page=1&sort_by=upTime&sort_type=asc"
+	path := "/api/proxy-list?protocols=socks5&limit=50&page=1&sort_by=upTime&sort_type=asc"
 	url, err := url.Parse(fmt.Sprintf("%s%s", g.host, path))
 	if err != nil {
 		return nil, err
