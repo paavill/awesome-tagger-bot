@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/antchfx/htmlquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/google/uuid"
 	"github.com/paavill/awesome-tagger-bot/domain/context"
 	"golang.org/x/net/html"
 )
@@ -59,9 +57,7 @@ func Run(ctx context.Context, chatId int64) (string, []string, error) {
 	var body string = ""
 	defer func() {
 		if r := recover(); r != nil {
-			fileUuid := uuid.New().String()
-			os.WriteFile("./"+fileUuid+".html", []byte(body), 0777)
-			log.Println("Recovered in f", r)
+			ctx.Logger().Critical("panic in get_news.Run: %s", r)
 		}
 	}()
 

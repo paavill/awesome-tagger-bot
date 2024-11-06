@@ -27,6 +27,11 @@ func (b *builder) Bot(bot *tgbotapi.BotAPI) services.Builder {
 	return b
 }
 
+func (b *builder) GetProxy(getProxy services.GetProxy) services.Builder {
+	b.services.getProxy = getProxy
+	return b
+}
+
 func (b *builder) Build() (services.Services, error) {
 	if b.services.kandinsky == nil {
 		return nil, fmt.Errorf("services: kandinsky is nil")
@@ -34,6 +39,10 @@ func (b *builder) Build() (services.Services, error) {
 
 	if b.services.bot == nil {
 		return nil, fmt.Errorf("services: bot is nil")
+	}
+
+	if b.services.getProxy == nil {
+		return nil, fmt.Errorf("services: getProxy is nil")
 	}
 
 	return b.services, nil
