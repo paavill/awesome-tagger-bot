@@ -114,7 +114,7 @@ func Run(ctx context.Context, chatId int64, autoSend bool) (string, []string, er
 		proxyObj := proxyList[rand.Int31n(int32(len(proxyList)))]
 		proxy = fmt.Sprintf("%s:%s", proxyObj.Ip, proxyObj.Port)
 		ctx.Logger().Info("using proxy: %s", proxy)
-		ctx.Logger().Info("proxy response time: %d, uptime: %d", proxyObj.ResponseTime, proxyObj.Uptime)
+		ctx.Logger().Info("proxy response time: %f, uptime: %f", proxyObj.ResponseTime, proxyObj.Uptime)
 	}
 
 	body = getHtml(site, proxy)
@@ -201,7 +201,7 @@ func findNodesWithAttrValue(node *html.Node, attrName string, attrValue ...strin
 }
 
 func getHtml(url, proxy string) string {
-	cmd := exec.Command("python3", "get_news.py", "--url", url, "--proxy", proxy)
+	cmd := exec.Command("python3", "get_news.py", "--url", url, "--proxy", proxy, "--news", "True")
 
 	output, err := cmd.Output()
 	if err != nil {
