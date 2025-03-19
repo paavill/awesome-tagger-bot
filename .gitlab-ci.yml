@@ -5,8 +5,6 @@ stages:
 .build: &build
   image: docker:20.10.16
   stage: build
-  only:
-    - tags
   services:
     - docker:20.10.16-dind
   script:
@@ -17,8 +15,6 @@ stages:
 .deploy: &deploy
   image: docker:20.10.16
   stage: deploy
-  only:
-    - tags
   before_script:
     - wget -O helm-v3.17.2-linux-amd64.tar.gz  https://get.helm.sh/helm-v3.17.2-linux-amd64.tar.gz
     - tar -zxvf helm-v3.17.2-linux-amd64.tar.gz
