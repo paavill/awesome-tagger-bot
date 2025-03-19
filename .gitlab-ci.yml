@@ -1,92 +1,91 @@
-variables:
-  TAG: $MAJ.$MIN.$CI_PIPELINE_IID
-  TAG_PROD: $MAJ.$MIN.$CI_PIPELINE_IID.$PROD_POSTFIX
-  TAG_TEST: $MAJ.$MIN.$CI_PIPELINE_IID.$TEST_POSTFIX
-
 stages:
   - build
   - deploy
 
 .build: &build
-  image: docker
-  services:
-    - "docker:dind"
-  variables:  # not strictly needed, depending on runner configuration
-    DOCKER_HOST: "tcp://docker:2375"
-    DOCKER_TLS_CERTDIR: ""
+  image: docker:20.10.16
   stage: build
+  services:
+    - docker:20.10.16-dind
   script:
-    - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
-    - docker build -t $REG:$TAG -t $REG:latest .
-    - docker push $REG:$TAG
-    - docker push $REG:latest
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+    - docker build -t $CI_REGISTRY/pavelchist2001/awesome-tagger-bot/tagger:$IMAGE_TAG . 
+    - docker push $CI_REGISTRY/pavelchist2001/awesome-tagger-bot/tagger:$IMAGE_TAG
 
 .deploy: &deploy
-  image: ubuntu:latest
+  image: docker:20.10.16
   stage: deploy
   before_script:
-    - apt-get update -y && apt-get install openssh-client -y
-    - eval $(ssh-agent -s)
-    - chmod 400 $SSH_PRIVATE_KEY
-    - ssh-add $SSH_PRIVATE_KEY
-    - mkdir ~/.ssh
-    - chmod 700 ~/.ssh
-    - cp $SSH_KNOWN_HOSTS ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
-    - ssh $SSH_USER@$SSH_IP "echo '' > .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'TAG=$TAG' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'REG=$REG' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN_FILENAME=' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_URI=$SSH_IP' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_USER=$MONGODB_USER' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_PASS=$MONGODB_PASS' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'MONGODB_DB=$MONGODB_DB' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'BOT_DEBUG=$BOT_DEBUG' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'BOT_TOKEN=$BOT_TOKEN' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'KANDINSKY_HOST=$KANDINSKY_HOST' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'KANDINSKY_KEY=$FUSION_BRAIN_API_KEY' >> .env"
-    - ssh $SSH_USER@$SSH_IP "echo 'KANDINSKY_SECRET=$FUSION_BRAIN_SECRET_KEY' >> .env"
+    - wget -O helm-v3.17.2-linux-amd64.tar.gz  https://get.helm.sh/helm-v3.17.2-linux-amd64.tar.gz
+    - tar -zxvf helm-v3.17.2-linux-amd64.tar.gz
+    - chmod 700 linux-amd64/helm
+    - export APP_VERSION=$IMAGE_TAG
+    - sed -i "s/APP_VERSION/${APP_VERSION}/g" ./tagger-helm/Chart.yaml
   script:
-    - ssh $SSH_USER@$SSH_IP "docker login -u $DOCKER_USER -p $DOCKER_PASSWORD"
-    - scp $COMPOSE_FILE $SSH_USER@$SSH_IP:~/$COMPOSE_FILE
-    - ssh $SSH_USER@$SSH_IP "docker compose up $COMPOSE_COMMAND -d --build"
-
-build_prod:
-  only:
-    - main
-  <<: *build
-  variables:
-    TAG: $TAG_PROD
-
-deploy_prod:
-  only:
-    - main
-  <<: *deploy
-  variables:
-    BOT_DEBUG: false
-    COMPOSE_COMMAND: tagger-prod mongo-prod
-    COMPOSE_FILE: ./docker-compose.yaml
-    MONGODB_DB: tagger_prod
-    BOT_TOKEN: $BOT_TOKEN_PROD
-    TAG: $TAG_PROD
+    - linux-amd64/helm upgrade tagger-helm ./tagger-helm -i --namespace=$DEPLOY_NAMESPACE --kubeconfig=$KUBECONFIG_FILE 
+      --set image.tag=$IMAGE_TAG
+      --set extraEnv.bot.tokenFile=$BOT_TOKEN_FILENAME
+      --set extraEnv.mongodb.uri=$MONGODB_URI
+      --set extraEnv.mongodb.user=$MONGODB_USER
+      --set extraEnv.mongodb.pass=$MONGODB_PASS
+      --set extraEnv.mongodb.db=$MONGODB_DB
+      --set extraEnv.bot.debug=$BOT_DEBUG
+      --set extraEnv.bot.token=$BOT_TOKEN
+      --set extraEnv.kandinsky.host=$KANDINSKY_HOST
+      --set extraEnv.kandinsky.key=$KANDINSKY_KEY
+      --set extraEnv.kandinsky.secret=$KANDINSKY_SECRET
 
 build_test:
   only:
     - test
   <<: *build
   variables:
-    TAG: $TAG_TEST
+    IMAGE_TAG: "$CI_COMMIT_SHORT_SHA-test"
 
 deploy_test:
   only:
     - test
   <<: *deploy
   variables:
-    BOT_DEBUG: false
-    COMPOSE_COMMAND: tagger-test mongo-prod
-    COMPOSE_FILE: ./docker-compose.yaml
-    MONGODB_DB: tagger_test
+    IMAGE_TAG: "$CI_COMMIT_SHORT_SHA-test"
+    BOT_TOKEN_FILENAME: ""
+    MONGODB_URI: $MONGODB_URI
+    MONGODB_USER: $MONGODB_USER
+    MONGODB_PASS: $MONGODB_PASS
+    MONGODB_DB: $MONGODB_DB_TEST
+    BOT_DEBUG: true
     BOT_TOKEN: $BOT_TOKEN_TEST
-    TAG: $TAG_TEST
-  
-  
+    KANDINSKY_HOST: $KANDINSKY_HOST
+    KANDINSKY_KEY: $FUSION_BRAIN_API_KEY
+    KANDINSKY_SECRET: $FUSION_BRAIN_SECRET_KEY
+    DEPLOY_NAMESPACE: tagger-test
+    KUBECONFIG_FILE: $KUBECONFIG_FILE_TEST
+
+
+build_prod:
+  only:
+    - tags
+    - /\d+\.\d+\.\d+\.\d+$/ # 1.2.3.4
+  <<: *build
+  variables:
+    IMAGE_TAG: $CI_COMMIT_TAG
+
+deploy_prod:
+  only:
+    - tags
+    - /\d+\.\d+\.\d+\.\d+$/ # 1.2.3.4
+  <<: *deploy
+  variables:
+    IMAGE_TAG: $CI_COMMIT_TAG
+    BOT_TOKEN_FILENAME: ""
+    MONGODB_URI: $MONGODB_URI
+    MONGODB_USER: $MONGODB_USER
+    MONGODB_PASS: $MONGODB_PASS
+    MONGODB_DB: $MONGODB_DB_PROD
+    BOT_DEBUG: false
+    BOT_TOKEN: $BOT_TOKEN_PROD
+    KANDINSKY_HOST: $KANDINSKY_HOST
+    KANDINSKY_KEY: $FUSION_BRAIN_API_KEY
+    KANDINSKY_SECRET: $FUSION_BRAIN_SECRET_KEY
+    DEPLOY_NAMESPACE: tagger-prod
+    KUBECONFIG_FILE: $KUBECONFIG_FILE_PROD
