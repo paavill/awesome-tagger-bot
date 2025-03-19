@@ -38,25 +38,25 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: BOT_TOKEN_FILENAME
-              value: {{ .Values.extraEnv.bot.tokenFile }}
+              value: "{{ .Values.extraEnv.bot.tokenFile }}"
             - name: MONGODB_URI
-              value: {{ .Values.extraEnv.mongodb.uri }}
+              value: "{{ .Values.extraEnv.mongodb.uri }}"
             - name: MONGODB_USER
-              value: {{ .Values.extraEnv.mongodb.user }}
+              value: "{{ .Values.extraEnv.mongodb.user }}"
             - name: MONGODB_PASS
-              value: {{ .Values.extraEnv.mongodb.pass }}
+              value: "{{ .Values.extraEnv.mongodb.pass }}"
             - name: MONGODB_DB
-              value: {{ .Values.extraEnv.mongodb.db }}
+              value: "{{ .Values.extraEnv.mongodb.db }}"
             - name: BOT_DEBUG
-              value: {{ .Values.extraEnv.bot.debug }}
+              value: "{{ .Values.extraEnv.bot.debug }}"
             - name: BOT_TOKEN
-              value: {{ .Values.extraEnv.bot.token }}
+              value: "{{ .Values.extraEnv.bot.token }}"
             - name: KANDINSKY_HOST
-              value: {{ .Values.extraEnv.kandinsky.host }}
+              value: "{{ .Values.extraEnv.kandinsky.host }}"
             - name: KANDINSKY_KEY
-              value: {{ .Values.extraEnv.kandinsky.key }}
+              value: "{{ .Values.extraEnv.kandinsky.key }}"
             - name: KANDINSKY_SECRET
-              value: {{ .Values.extraEnv.kandinsky.secret }}
+              value: "{{ .Values.extraEnv.kandinsky.secret }}"
           # ports:
           #   - name: http
           #     containerPort: {{ .Values.service.innerPort }}
