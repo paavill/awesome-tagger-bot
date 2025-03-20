@@ -10,8 +10,8 @@ RUN GOOS=linux CGO_ENABLED=0 CC=gcc go build -a -installsuffix cgo -ldflags '-ex
 FROM ubuntu:20.04 as runner
 WORKDIR /
 
-# RUN apt update
-# RUN apt install -y ca-certificates
+RUN apt update
+RUN apt install -y ca-certificates
 # RUN apt install -y firefox
 # RUN apt install -y wget
 # RUN apt install -y unzip
